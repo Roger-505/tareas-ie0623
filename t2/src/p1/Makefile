@@ -1,6 +1,6 @@
 # Variables
 ASSEMBLER = as12
-FILE = problema
+FILE = problema1
 PROCESSOR = 68hcs12
 SIMULATOR = sim68cs12
 
