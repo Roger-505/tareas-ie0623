@@ -104,10 +104,9 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         MOVW #LeerPB_Est1,Est_Press_Leer_PB	;Carga estado inicial para la ME Leer_PB
 Despachador_Tareas
         Jsr Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
+	Jsr Tarea_Teclado			;Despacha Tarea_Teclado
         Jsr Tarea_Leer_PB			;Despacha Tarea_Leer_PB
-        Jsr Tarea_LED_PB			;Despacha Tarea_LED_PB
-	;Jsr Tarea_Teclado			;Despacha Tarea_Teclado
-	;Jsr Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
+	Jsr Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
        
 ;******************************************************************************
@@ -211,12 +210,12 @@ FIN_PBEs4
 ;                       	TAREA TECLADO
 ;******************************************************************************
 Tarea_Teclado
-
+	RTS		;Retornar de la subrutina
 ;******************************************************************************
 ;                       	TAREA Borrar Tecla
 ;******************************************************************************
 Tarea_Borrar_TCL
-	
+	RTS		;Retornar de la subrutina
 ;******************************************************************************
 ;                       SUBRUTINA DE ATENCION A RTI
 ;******************************************************************************
