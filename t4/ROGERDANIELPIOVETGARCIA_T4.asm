@@ -33,23 +33,50 @@ RTIF      	EQU   	$80    	;RTIF = CRGFLG.7. Habilita/Deshabilita RTI
 ShortP_PB	EQU	$01	;ShortP_PB = Banderas_PB.0
 LongP_PB	EQU    	$02	;LongP_PB = Banderas_PB.1
 INIT_EST_DATOS	EQU    	$1000	;Incio de las estructuras de datos
-INIT_PILA	EQU	$3BFF	;Valor inicial de la pila 
+INIT_NUM_ARRAY	EQU	$1010	;COMENTARIO
+INIT_BANDERAS	EQU	$100C	;COMENTARIO
 INIT_T_TIMERS 	EQU   	$1040	;Inicio de la tabla de timers
+INIT_T_TECLAS	EQU	$1020
+INIT_PILA	EQU	$3BFF	;Valor inicial de la pila 
 INIT_PROG    	EQU    	$2000	;Inicio del programa principal
 VEC_RTI		EQU	$3E70	;Vector de interrupción RTI
+PA0		EQU	$01	;PA0 = PORTA.0
+PA1		EQU	$02	;PA1 = PORTA.1
+PA2		EQU	$04	;PA2 = PORTA.2
 
 ;******************************************************************************
 ;                       DECLARACION DE LAS ESTRUCTURAS DE DATOS
 ;******************************************************************************
 
 	ORG INIT_EST_DATOS
-Est_Press_Leer_PB	DS        2	;Variable de estado para la ME Leer_PB
-Banderas_PB         	DS        1	;Variable bandera X:X:X:X:X:X:LongP_PB:ShortP_PB
-                                
+MAX_TCL		DS	1
+Tecla		DS	1
+Tecla_IN	DS	1
+Cont_TCL	DS	1
+Patron		DS	1
+Est_Pres_TCL	DW	1
+	ORG INIT_BANDERAS
+Banderas         	DS        1	;Variable bandera X:X:X:X:X:X:LongP_PB:ShortP_PB
+Est_Press_LeerPB	DW        1	;Variable de estado para la ME Leer_PB
+	ORG INIT_NUM_ARRAY
+Num_Array	DS	16
+	ORG INIT_T_TECLAS
+; Tabla de teclas para identificar la tecla presionada en el teclado
+Teclas		DB	$01		
+		DB	$02
+		DB	$03
+		DB	$04
+		DB	$05
+		DB	$06
+		DB	$07
+		DB	$08
+		DB	$09
+		DB 	$0B	;Tecla de borrado
+		DB	$00
+             	DB	$0E     ;Tecla de enter
 ;===============================================================================
 ;                              TABLA DE TIMERS
 ;===============================================================================
-
     	Org INIT_T_TIMERS
 Tabla_Timers_BaseT		
 Timer1mS 	ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
@@ -86,6 +113,9 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         Movb #$0F,PTP
         Movb #$17,RTICTL	;Se configura RTI con un periodo de 1 mS
         Bset CRGINT,$80
+	; Configuración de HW para el teclado
+	Bset DDRA,$F0		;Parte alta de PORTA como salidas, parte baja como entradas
+	Bset PUCR,$01		;Habilitar pullups en PORTA
 
 ;===============================================================================
 ;                           PROGRAMA PRINCIPAL
@@ -98,14 +128,20 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         MOVB #$00,Timer_SHP_PB
         MOVB #$00,Timer_LP_PB			;Limpia los timers por usar
         MOVB #$00,Timer_Reb_PB
+
+	;Inicializar variables para el teclado
+	MOVB #$FF,Tecla				;Inicializar variable para almacenar tecla presionada
+
         Lds #INIT_PILA				;Inicializa la pila
         Cli					;Habilitar interrupciones no mascarables
-        Clr Banderas_PB				;Limpia las banderas
-        MOVW #LeerPB_Est1,Est_Press_Leer_PB	;Carga estado inicial para la ME Leer_PB
+        Clr Banderas				;Limpia las banderas
+        MOVW #LeerPB_Est1,Est_Press_LeerPB	;Carga estado inicial para la ME Leer_PB
+
 Despachador_Tareas
         Jsr Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
 	Jsr Tarea_Teclado			;Despacha Tarea_Teclado
-        Jsr Tarea_Leer_PB			;Despacha Tarea_Leer_PB
+	Jsr Tarea_LED_PB
+        ;Jsr Tarea_Leer_PB			;Despacha Tarea_Leer_PB
 	Jsr Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
        
@@ -114,13 +150,13 @@ Despachador_Tareas
 ;******************************************************************************
 
 Tarea_LED_PB
-        BRSET Banderas_PB,ShortP_PB,ON 	;Si es un short press, enciende LED
-        BRSET Banderas_PB,LongP_PB,OFF	;Si es un long press, apaga LED
+        BRSET Banderas,ShortP_PB,ON 	;Si es un short press, enciende LED
+        BRSET Banderas,LongP_PB,OFF	;Si es un long press, apaga LED
         BRA FIN_LED
-ON      BCLR Banderas_PB,ShortP_PB   	;Borra las banderas asociadas y
-        BSET PORTB,$01                	;ejecuta la acción
+ON      BCLR Banderas,ShortP_PB   	;Borra las banderas asociadas y
+	BSET PORTB,$01                	;ejecuta la acción
         BRA FIN_LED
-OFF     BCLR Banderas_PB,LongP_PB
+OFF     BCLR Banderas,LongP_PB
         BCLR PORTB,$01
 FIN_LED	RTS
 
@@ -151,7 +187,7 @@ FinLedTest
 ;******************************************************************************
 
 Tarea_Leer_PB
-        LDX Est_Press_Leer_PB
+        LDX Est_Press_LeerPB
         JSR 0,X
 FinTareaPB
         RTS
@@ -164,7 +200,7 @@ LeerPB_Est1
 LD_PB   MOVB #tSupReb_PB,Timer_Reb_PB        	;Cargar timer de rebotes
         MOVB #tShortP_PB,Timer_SHP_PB        	;Cargar timer de short press
         MOVB #tLongP_PB,Timer_LP_PB        	;Cargar timer de long press
-        MOVW #LeerPB_Est2,Est_Press_Leer_PB    	;Actualizar el próximo estado
+        MOVW #LeerPB_Est2,Est_Press_LeerPB    	;Actualizar el próximo estado
 FIN_PBEs1
 	RTS                                	;Retornar de subrutina
 
@@ -174,9 +210,9 @@ LeerPB_Est2
         TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
         BNE FIN_PBEs2                          	;Saltar si el timer no ha llegado a cero
         BRCLR PortPB,MaskPB,FALSO               ;Salte si se detectó una falsa lectura
-        MOVW #LeerPB_Est1,Est_Press_Leer_PB    	;Como la lectura es válida, saltar al estado para verificar si es un short press
+        MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Como la lectura es válida, saltar al estado para verificar si es un short press
         BRA FIN_PBEs2                       	;Saltar para terminar la subrutina
-FALSO  	MOVW #LeerPB_Est3,Est_Press_Leer_PB    	;Como la lectura no es válida, saltar al estado inicial
+FALSO  	MOVW #LeerPB_Est3,Est_Press_LeerPB    	;Como la lectura no es válida, saltar al estado inicial
 FIN_PBEs2
 	RTS                                    	;Fin de la subrutina
 
@@ -186,10 +222,10 @@ LeerPB_Est3
         TST Timer_SHP_PB                      	;Verificar si el timer de short press llegó a cero
         BNE FIN_PBEs3                          	;Saltar si el timer ya llegó a cero
         BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
-        BSET Banderas_PB,ShortP_PB             	;Habilitar bandera de short press 
-        MOVW #LeerPB_Est1,Est_Press_Leer_PB    	;Cambiar al estado inicial, ya que fue short press
+        BSET Banderas,ShortP_PB             	;Habilitar bandera de short press 
+        MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Cambiar al estado inicial, ya que fue short press
         BRA FIN_PBEs3                         	;Saltar para terminar la subrutina
-NO_SHP  MOVW #LeerPB_Est4,Est_Press_Leer_PB    	;Cambiar al estado 4, para verificar si es long press
+NO_SHP  MOVW #LeerPB_Est4,Est_Press_LeerPB    	;Cambiar al estado 4, para verificar si es long press
 FIN_PBEs3
 	RTS
 
@@ -198,11 +234,11 @@ LeerPB_Est4
         TST Timer_LP_PB                    	;Verificar si el timer de long press llegó a cero
         BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
         BRCLR PortPB,MaskPB,FIN_PBEs4          	;Saltar si el botón sigue presionado
-        BSET Banderas_PB,LongP_PB             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
+        BSET Banderas,LongP_PB             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
         BRA I_EST                             	;Saltar para transicionar al estado inicial
 T_NO_Z  BRCLR PortPB,MaskPB,FIN_PBEs4          	;Saltar si el botón sigue presionado
-        BSET Banderas_PB,ShortP_PB            	;Habilitar bandera de long press, ya que se verificó que sí es
-I_EST   MOVW #LeerPB_Est1,Est_Press_Leer_PB    	;Cambiar al estado inicial
+        BSET Banderas,ShortP_PB            	;Habilitar bandera de long press, ya que se verificó que sí es
+I_EST   MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Cambiar al estado inicial
 FIN_PBEs4
 	RTS
 	
@@ -210,12 +246,46 @@ FIN_PBEs4
 ;                       	TAREA TECLADO
 ;******************************************************************************
 Tarea_Teclado
-	RTS		;Retornar de la subrutina
+	JSR LEER_TECLADO		;Saltar a subrutina para leer teclado
+	LDAA Tecla			;Cargar tecla posiblemente presionada
+	CMPA #$FF			;Verificar si una tecla fue presionada
+	loc
+	BNE PRESS`			;Saltar si se presionó una tecla
+	BRA FIN`			;Saltar si aun no se ha presionado una tecla
+PRESS`	BRA *				;Verificar tecla presionada
+FIN`	RTS				;Retornar de la subrutina 
 ;******************************************************************************
 ;                       	TAREA Borrar Tecla
 ;******************************************************************************
 Tarea_Borrar_TCL
 	RTS		;Retornar de la subrutina
+
+;******************************************************************************
+;                       	SUBRUTINA LEER_TECLADO
+;******************************************************************************
+LEER_TECLADO
+	CLR CONT_TCL			;Limpiar contador de tecla
+	MOVB #$EF,Patron		;Cargar valor inicial para desplazar las teclas
+	loc
+SIGA`	MOVB Patron,PORTA		;Cargar patron al puerto A, para accesar al teclado 
+	BRCLR PORTA,PA0,COPIE`		;Saltar si la tecla presionada está en la columna 0
+	INC CONT_TCL			;Incrementar contador para verificar si está en la columna 1
+	BRCLR PORTA,PA1,COPIE`		;Saltar si la tecla presionada está en la columna 1
+	INC CONT_TCL			;Incrementar contador para verificar si está en la columna 2
+	BRCLR PORTA,PA2,COPIE`		;Saltar si la tecla presionada está en la columna 2
+	INC CONT_TCL			;Incrementar contador para verificar las teclas en el próximo ciclo
+	LDAA Patron			;Cargar máscara para desplazar 0 en la parte alta de PORTA
+	CMPA #$7F			;Verificar si ya se llegó a la última fila
+	BNE SHIFT`			;Saltar si aun faltan filas por procesar
+	MOVB #$FF,Tecla			;No se encontró una tecla presionada
+	BRA FIN`			;Saltar para terminar la subrutina
+SHIFT`	SEC				;Poner C=1 para que solo se roten 1s a Patron
+	ROL Patron			;Desplazar 0 para acceder a la siguiente fila
+	BRA SIGA`			;Saltar para seguir procesando filas
+COPIE`	LDAA CONT_TCL			;Cargar offset correspondiente a la tecla presionada
+	LDX #Teclas			;Cargar dirección base de tabla con teclas
+	MOVB A,X,Tecla			;Actualizar tecla presionada
+FIN`	RTS				;Retornar de la subrutina
 ;******************************************************************************
 ;                       SUBRUTINA DE ATENCION A RTI
 ;******************************************************************************
