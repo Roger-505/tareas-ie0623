@@ -6,7 +6,7 @@ SIMULATOR = sim68cs12
 SERIAL = $(shell ls /dev/ttyUSB* | head -n 1)	# Last serial port added must be Dragon12
 
 # Default
-all: as 
+all: ram run
 
 # Load to board
 ram: as load
@@ -23,6 +23,7 @@ load:
 	@cat $(FILE).s19 > $(SERIAL)
 
 run: 
+	@sleep 2
 	@echo "g 2000\r" > $(SERIAL)
 
 clean:
