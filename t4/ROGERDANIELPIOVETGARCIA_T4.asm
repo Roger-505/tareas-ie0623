@@ -129,7 +129,7 @@ Timer_LED_Testigo	ds	1	;Timer para parpadeo de led testigo
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
 ;===============================================================================
-;                              CONFIGURACION DE HARDWARE
+;                     	CONFIGURACION DE HARDWARE
 ;===============================================================================
 	ORG INIT_PROG
         Bset DDRB,$81         	;Habilitacion del LED Testigo
@@ -151,6 +151,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$FF,Tecla_IN			;Inicializar variable para almacenar tecla presionada
 	MOVB #$00,CONT_TCL			;Inicializar offset para agregar teclas a Num_Array
 	MOVB #$00,Patron			;Inicilizar máscara para leer las teclas de PORTA
+	MOVB #$03,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
 
 	;Inicializar banderas
@@ -183,7 +184,7 @@ Despachador_Tareas
         Bra Despachador_Tareas			;Saltar para seguir despachando
 
 ;******************************************************************************
-;                               TAREA LED TESTIGO
+;                      		TAREA LED TESTIGO
 ;******************************************************************************
 Tarea_Led_Testigo
 	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
@@ -242,12 +243,34 @@ FIN`	RTS					;Saltar de la subrutina
 
 ;============================== TECLADO ESTADO 4 =============================
 TareaTCL_Est4
+	LDAA CONT_TCL		;Cargar offset para indexar Num_Array
+	LDAB Tecla_IN		;Cargar valor de tecla de entrada
+	LDX #NUM_ARRAY		;Cargar dirección base de arreglo para teclas
+	CMPA MAX_TCL		;Verificar si se alcanzó la secuencia de longitud máxima
+	loc
+	BEQ MAX`		;Saltar si se alcanzó la secuencia de longitud máxima
+	TST CONT_TCL		;Verificar si es la primera tecla presionada
+	BEQ FIRST`		;Saltar si es la primera tecla presionada
+	CMPA #$0B		;Verificar si la tecla presionada fue Borrar
+	BEQ BOR`		;Saltar si la tecla presionada fue Borrar
+	CMPA #$0E		;Verificar si la tecla presionada fue Enter
+	BEQ ENT`		;Saltar si la tecla presionada fue Enter
+GUARDE` STAB A,X		;Almacenar la tecla presionada en Num_Array
+	INC CONT_TCL		;Incrementar offset para indexar a Num_Array
+	BRA FIN`
+MAX`	BRA EST1`
+FIRST`	BRA GUARDE`
+BOR`	BRA EST1`
+ENT`	BRA EST1`
+FIN`	MOVB #$FF,Tecla_IN			;Borrar valor de tecla de entrada
+	MOVB #$FF,Tecla				;Borrar valor de tecla
+EST1`	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cambiar al estado 1 para procesar otra tecla
 	RTS					;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       	SUBRUTINA LEER_TECLADO
-;******************************************************************************
-LEER_TECLADO
+;*****************************************************************************
+LEER_TECLAD
 	CLRB				;Limpiar contador de tecla
 	MOVB #$EF,Patron		;Cargar valor inicial para desplazar las teclas
 	loc
