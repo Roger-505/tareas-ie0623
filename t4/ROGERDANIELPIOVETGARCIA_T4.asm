@@ -270,7 +270,7 @@ EST1`	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cambiar al estado 1 para procesar otra t
 ;******************************************************************************
 ;                       	SUBRUTINA LEER_TECLADO
 ;*****************************************************************************
-LEER_TECLAD
+LEER_TECLADO
 	CLRB				;Limpiar contador de tecla
 	MOVB #$EF,Patron		;Cargar valor inicial para desplazar las teclas
 	loc
