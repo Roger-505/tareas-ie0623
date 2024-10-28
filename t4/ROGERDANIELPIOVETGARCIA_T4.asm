@@ -374,9 +374,10 @@ ON      BCLR Banderas,ShortP   		;Borrar la bandera de short press
 	BSET PORTB,$01          	;Encender el LED conectado a PB0
         BRA FIN`			;Saltar para finalizar la subrutina
 OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
+	BCLR Banderas,ArrayOK		;Borrar la bandera de secuencia de teclas válidas
         BCLR PORTB,$01			;Apagar el LED conectado a PB0
 	JSR BORRAR_NUM_ARRAY		;Saltar a subrutina para borrar Num_Array
-FIN`	RTS
+FIN`	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       SUBRUTINA BORRAR_NUM_ARRAY
