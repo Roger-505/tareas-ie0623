@@ -23,7 +23,7 @@ load:
 	@cat $(FILE).s19 > $(SERIAL)
 
 run: 
-	@sleep 2
+	@sleep 3
 	@echo "g 2000\r" > $(SERIAL)
 
 clean:
