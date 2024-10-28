@@ -139,8 +139,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         Movb #$0F,PTP
         Movb #$17,RTICTL	;Se configura RTI con un periodo de 1 mS
         Bset CRGINT,$80
-	; Configuración de HW para el teclado
-	Bset DDRA,$F0		;Parte alta de PORTA como salidas, parte baja como entradas
+	MOVB #$F0,DDRA		;Parte alta de PORTA como salidas, parte baja como entradas
 	Bset PUCR,$01		;Habilitar pullups en PORTA
 
 ;===============================================================================
@@ -153,6 +152,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$00,Patron			;Inicilizar máscara para leer las teclas de PORTA
 	MOVB #$03,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
+	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
@@ -251,19 +251,33 @@ TareaTCL_Est4
 	BEQ MAX`		;Saltar si se alcanzó la secuencia de longitud máxima
 	TST CONT_TCL		;Verificar si es la primera tecla presionada
 	BEQ FIRST`		;Saltar si es la primera tecla presionada
-	CMPA #$0B		;Verificar si la tecla presionada fue Borrar
-	BEQ BOR`		;Saltar si la tecla presionada fue Borrar
-	CMPA #$0E		;Verificar si la tecla presionada fue Enter
+	CMPB #$0B		;Verificar si la tecla presionada fue Borrar
+	BEQ BOR_T`		;Saltar si la tecla presionada fue Borrar
+	CMPB #$0E		;Verificar si la tecla presionada fue Enter
 	BEQ ENT`		;Saltar si la tecla presionada fue Enter
 GUARDE` STAB A,X		;Almacenar la tecla presionada en Num_Array
 	INC CONT_TCL		;Incrementar offset para indexar a Num_Array
-	BRA FIN`
-MAX`	BRA EST1`
-FIRST`	BRA GUARDE`
-BOR`	BRA EST1`
-ENT`	BRA EST1`
+	BRA FIN`		;Saltar para finalizar el estado
+MAX`	CMPB #$0B		;Verificar si la tecla presionada es Borrar
+	BEQ BOR`		;Saltar para borrar la tecla presionada
+	CMPB #$0E		;Verificar si la teclra presionada es Enter
+	BEQ ENT`		;Saltar para finalizar la secuencia de teclas válida
+	BRA FIN`		;Saltar para finalizar el estado
+FIRST`	CMPB #$0B		;Verificar si la tecla presionada es Borrar
+	BEQ FIN`		;Saltar para finalizar el estado
+	CMPB #$0E		;Verificar si la tecla presionada es Enter
+	BEQ FIN`		;Saltar para finalizar el estado
+	BRA GUARDE`		;Saltar para añadir una tecla a Num_Array
+BOR_T`	TST CONT_TCL		;Verificar si es la primera tecla presionada
+	BEQ FIN`		;Saltar para finalizar el estado
+BOR`	DECA			;Decrementar offset
+	MOVB #$FF,A,X		;Borrar última tecla añadaida a Num_Array
+	STAA CONT_TCL		;Actualizar offset en memoria
+	BRA FIN`		;Saltar para finalizar el estado
+ENT`	CLR CONT_TCL		;Borrar offset para indexar Num_Array
+	BSET Banderas,ArrayOK	;Indicar que se ha generado un arreglo de teclas válido
+	BRA FIN`		;Saltar para finalizar el estado
 FIN`	MOVB #$FF,Tecla_IN			;Borrar valor de tecla de entrada
-	MOVB #$FF,Tecla				;Borrar valor de tecla
 EST1`	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cambiar al estado 1 para procesar otra tecla
 	RTS					;Retornar de la subrutina
 
@@ -302,7 +316,6 @@ Tarea_Leer_PB
         RTS				;Retornar de la subrutina
 
 ;============================== LEER PB ESTADO 1 =============================
-
 LeerPB_Est1
         BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
 	loc
@@ -314,7 +327,6 @@ LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
 FIN1	RTS                                	;Retornar de subrutina
 
 ;============================== LEER PB ESTADO 2 =============================
-
 LeerPB_Est2
         TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
 	loc
@@ -354,16 +366,28 @@ FIN4	RTS					;Retornar de la subrutina
 ;                               TAREA BORRAR_TCL
 ;******************************************************************************
 Tarea_Borrar_TCL
-        BRSET Banderas,ShortP,ON 	;Si es un short press, enciende LED
-        BRSET Banderas,LongP,OFF	;Si es un long press, apaga LED
+        BRSET Banderas,ShortP,ON 	;Saltar si hubo un short press
+        BRSET Banderas,LongP,OFF	;Saltar si hubo un long press
 	loc
-        BRA FIN5
-ON      BCLR Banderas,ShortP   	;Borra las banderas asociadas y
-	BSET PORTB,$01                	;ejecuta la acción
-        BRA FIN5 
-OFF     BCLR Banderas,LongP
-        BCLR PORTB,$01
-FIN5	RTS
+        BRA FIN`			;Saltar para finalizar la subrutina
+ON      BCLR Banderas,ShortP   		;Borrar la bandera de short press
+	BSET PORTB,$01          	;Encender el LED conectado a PB0
+        BRA FIN`			;Saltar para finalizar la subrutina
+OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
+        BCLR PORTB,$01			;Apagar el LED conectado a PB0
+	JSR BORRAR_NUM_ARRAY		;Saltar a subrutina para borrar Num_Array
+FIN`	RTS
+
+;******************************************************************************
+;                       SUBRUTINA BORRAR_NUM_ARRAY
+;******************************************************************************
+BORRAR_NUM_ARRAY
+	LDX #Num_Array			;Cargar dirección base del arreglo a borrar
+	LDAA MAX_TCL			;Cargar cantidad máxima de teclas válidas
+	loc
+SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
+	DBNE A,SIGA`			;Decrementar y saltar si no se ha barrido el arreglo completo
+	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       SUBRUTINA DE ATENCION A RTI
