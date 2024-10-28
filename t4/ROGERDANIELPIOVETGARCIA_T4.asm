@@ -1,14 +1,13 @@
 ;******************************************************************************
-;                              	TAREA #4
+;                   TAREA #4: LECTURA DE UN TECLADO MATRICIAL
+;******************************************************************************
+;Version: 1.0
+;Autor: Roger Daniel Piovet García 
+;Fecha de entrega: 2024-10-29
+;Descripción: ....
 ;******************************************************************************
 
 #include registers.inc
-
-;******************************************************************************
-;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
-;******************************************************************************
-	ORG VEC_RTI
-    	DW Maquina_Tiempos
 
 ;******************************************************************************
 ;                                ENCABEZADO
@@ -127,6 +126,12 @@ Tabla_Timers_Base1S
 Timer_LP            	ds    	1	;Timer para identificar un long press	
 Timer_LED_Testigo	ds	1	;Timer para parpadeo de led testigo
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
+
+;******************************************************************************
+;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
+;******************************************************************************
+	ORG VEC_RTI
+    	DW Maquina_Tiempos
 
 ;===============================================================================
 ;                     	CONFIGURACION DE HARDWARE
