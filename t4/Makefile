@@ -1,6 +1,6 @@
 # Variables
 ASSEMBLER = as12
-FILE = RogerPiovet_T4
+FILE = RogerPiovetT4
 PROCESSOR = 68hcs12
 SIMULATOR = sim68cs12
 SERIAL = $(shell ls /dev/ttyUSB* | head -n 1)  # Last serial port added must be Dragon12
