@@ -155,7 +155,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$FF,Tecla_IN			;Inicializar variable para almacenar tecla presionada
 	MOVB #$00,CONT_TCL			;Inicializar offset para agregar teclas a Num_Array
 	MOVB #$00,Patron			;Inicilizar máscara para leer las teclas de PORTA
-	MOVB #$03,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
+	MOVB #$05,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
 	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
 
