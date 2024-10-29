@@ -142,7 +142,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         BClr PTJ,$02         	;haciendo toogle
         Movb #$0F,DDRP      	;bloquea los display de 7 Segmentos
         Movb #$0F,PTP
-        Movb #$16,RTICTL	;Se configura RTI con un periodo de 1 mS
+        Movb #$17,RTICTL	;Se configura RTI con un periodo de 1 mS
         Bset CRGINT,$80
 	MOVB #$F0,DDRA		;Parte alta de PORTA como salidas, parte baja como entradas
 	Bset PUCR,$01		;Habilitar pullups en PORTA
