@@ -4,7 +4,27 @@
 ;Version: 1.0
 ;Autor: Roger Daniel Piovet García 
 ;Fecha de entrega: 2024-10-29
-;Descripción: ....
+;Descripción: Este programa implementa las subrutinas y máquinas de estado para
+;la lectura del teclado matricial de la Dragon12+2. 
+; 
+;	+-----+
+;	|1|2|3|		+-----+
+;	|4|5|6|		|CLEAR|
+;	|7|8|9|		+-----+
+;	|B|0|E|
+;	+-----+
+;
+;Donde las teclas '*' y '#' corresponden a Borrar y Enter. El arreglo de teclas
+;ingresado es almacenado en Num_Array, y puede ser confirmado como una secuencia
+;válida de teclas presionando el botón Enter, o puede ser borrado tecla por tecla
+;utilizando la tecla Borrar. Num_Array puede ser borrado por completo e invalidarse 
+;como una secuencia de teclas válida por medio de un long press del botón CLEAR, el 
+;cual corresponde al botón pulsador conectado a PH0 en la Dragon12+2. Un short press 
+;de CLEAR enciende el LED conectado a PB0 de la Dragon12+2, mientras que un long press 
+;lo apaga. El programa implementa supresión de rebotes para la lectura del botón 
+;pulsador y el teclado matricial. Además, se parpadea el LED PB7 para indicar 
+;el correcto funcionamiento de la máquina de tiempos que genera las bases de 
+;tiempo para las máquinas de estado del programa.
 ;******************************************************************************
 
 #include registers.inc
