@@ -21,7 +21,7 @@ tTimer1S       	EQU	1000	;Base de tiempo de 1 segundo (100 mS x 10)
 
 ; -- Aquí se colocan los valores de carga para los timers utilizados en el programa ---
 tSuprRebTCL	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para los botones del teclado
-tTimerLDTst    	EQU	1    	;Tiempo de parpadeo de LED testigo en segundos
+tTimerLDTst    	EQU	5    	;Tiempo de parpadeo de LED testigo en segundos
 
 ;--- Aqui se colocan los valores utilizados por Leer_PB
 PortPB		EQU	PTIH	;Puerto en donde se ubican los botones en la Dragon12+2
@@ -36,28 +36,31 @@ ShortP		EQU	$01	;ShortP  = Banderas_PB.0
 LongP		EQU    	$02	;LongP   = Banderas_PB.1
 ArrayOK		EQU	$04	;ArrayOK = Banderas_PB.2
 
+; --- Aquí se colocan los valores utilizados por LDTst
+LD_Red		EQU	$10	
+LD_Green	EQU	$40
+LD_Blue		EQU	$20
+
 ; --- Aquí se colocan las máscaras para los bits de PORTA ---
 PA0		EQU	$01	;PA0 = PORTA.0
 PA1		EQU	$02	;PA1 = PORTA.1
 PA2		EQU	$04	;PA2 = PORTA.2
 PA3		EQU	$08	;PA3 = PORTA.3
-PA4		EQU	$10	;PA4 = PORTA.4
-PA5		EQU	$20	;PA5 = PORTA.5
-PA6		EQU	$40	;PA6 = PORTA.6
-PA7		EQU	$80	;PA7 = PORTA.7
+
 
 ; --- Aquí se colocan las direcciones de inicio de las estructuras de datos del programa ---
 INIT_TECLADO	EQU	$1000	;Inicio de estructuras de datos asociadas a Tarea_Teclado
 INIT_NUM_ARRAY	EQU	$1010	;Inicio de Num_Array
 INIT_BANDERAS	EQU	$100C	;Inicio de las banderas utilizadas en el programa
 INIT_LEERPB	EQU	$100D	;Inicio de estructuras de datos asociadas a LeerPB
+INIT_LD_TST	EQU	$1080	;Inicio de estructuras de datos asociadas a LDTst
 INIT_T_TIMERS 	EQU   	$1040	;Inicio de la tabla de timers
 INIT_T_TECLAS	EQU	$1020	;Inicio de tabla de teclas válidas
 
 ; --- Aquí se colocan estructuras de datos misceláneas --- 
 INIT_PILA	EQU	$3BFF	;Valor inicial de la pila 
 INIT_PROG    	EQU    	$2000	;Inicio del programa principal
-VEC_RTI		EQU	$3E70	;Vector de interrupción RTI
+VEC_OC		EQU	$3E66	;Vector de interrupción Output Compare
 
 ;******************************************************************************
 ;                    DECLARACION DE LAS ESTRUCTURAS DE DATOS
@@ -75,11 +78,15 @@ Num_Array	DS	5
 
 ; --- Aquí se colocan las variables bandera utilizadas en el programa ---
 	ORG INIT_BANDERAS
-Banderas         	DS        1	;Banderas = X:X:X:X:X:Array_OK:LongP:ShortP
+Banderas         	DS	1	;Banderas = X:X:X:X:X:Array_OK:LongP:ShortP
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Leer_PB --- 
 	ORG INIT_LEERPB
-Est_Press_LeerPB	DS        2	;Variable de estado para la ME Leer_PB
+Est_Press_LeerPB	DS	2	;Variable de estado para la ME Leer_PB
+
+; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Led_Testigo ---
+	ORG INIT_LD_TST
+Est_Pres_LDTst		DS	2
 
 ;===============================================================================
 ;                              TABLA DE TECLAS
@@ -102,6 +109,7 @@ Teclas		DB	$01	;(PA0 = 0) && (PA4 = 0) -> '1'
 ;                              TABLA DE TIMERS
 ;===============================================================================
     	Org INIT_T_TIMERS
+CONT_OC			ds	1	;Contador para llamadas a la ISR
 Tabla_Timers_BaseT		
 Timer1mS 		ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
 Timer10mS		ds 	2       ;Timer para generar la base de tiempo 10 mS
@@ -119,33 +127,35 @@ Timer_SHP 		ds   	1	;Timer para identificar un short press
 Fin_Base10ms    	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base100mS
-Timer1_100mS  		ds   	1	;Timer default (sin utilizarse)
+Timer_LED_Testigo	ds	1	;Timer para parpadeo de led testigo
 Fin_Base100mS   	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1S
 Timer_LP            	ds    	1	;Timer para identificar un long press	
-Timer_LED_Testigo	ds	1	;Timer para parpadeo de led testigo
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
 ;******************************************************************************
 ;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
 ;******************************************************************************
-	ORG VEC_RTI
+	ORG VEC_OC
     	DW Maquina_Tiempos
-
 ;===============================================================================
 ;                     	CONFIGURACION DE HARDWARE
 ;===============================================================================
 	ORG INIT_PROG
-        Bset DDRB,$81         	;Habilitacion del LED Testigo
+	BSET DDRP,$70		;Habilitación del LED Testigo RGB
+	BSET PERP,$70		;Habilitar resistencias PU-PD para el puerto P
+	BSET PPSP,$70		;Habilitar pulldowns para PP[4:6]
+        ;Bset DDRB,$81         	;Habilitacion del LED Testigo
         Bset DDRJ,$02          	;como comprobacion del timer de 1 segundo
         BClr PTJ,$02         	;haciendo toogle
-        Movb #$0F,DDRP      	;bloquea los display de 7 Segmentos
-        Movb #$0F,PTP
-        Movb #$17,RTICTL	;Se configura RTI con un periodo de 1 mS
-        Bset CRGINT,$80
 	MOVB #$F0,DDRA		;Parte alta de PORTA como salidas, parte baja como entradas
 	Bset PUCR,$01		;Habilitar pullups en PORTA
+	MOVB #480,TC4		;Cargar timer de comparación para Output Compare
+	BSET TSCR1,$90		;Habilitar módulo TIMER
+	BCLR TSCR2,$07		;Definir preescalador PRS = 1
+	BSET TIOS,$10		;Habilitar salida por comparación para el canal 4
+	BSET TIE,$10		;Habilitar interrupción por salida por comparación para el canal 4
 
 ;===============================================================================
 ;                           PROGRAMA PRINCIPAL
@@ -164,6 +174,9 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
 	;Inicializar variables utilizadas en Leer_PB
         MOVW #LeerPB_Est1,Est_Press_LeerPB	;Carga estado inicial para la ME Leer_PB
+	
+	;Inicializar variables utilizadas en LDTst
+	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar estado inicial para parpadear el LED azul
 
 	;Inicializar timers baseT
         Movw #tTimer1mS,Timer1mS
@@ -177,6 +190,12 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         MOVB #$00,Timer_LP			
         MOVB #$00,Timer_Reb_PB
 	MOVB #$00,Timer_RebTCL
+	
+	; Inicialización para el uso de la salida por comparación
+	LDD TCNT		;Cargar valor actual del timer
+	ADDD #480		;Cargar el valor inicial de comparación para el canal 4
+	STD TC4			;Guardar el nuevo valor de comparación
+	MOVB #50,CONT_OC	;Cargar contador de llamadas a ISR
 
 	;Inicialización para uso de interrupciones y subrutinas
         LDS #INIT_PILA				;Inicializa la pila
@@ -192,14 +211,41 @@ Despachador_Tareas
 ;                      		TAREA LED TESTIGO
 ;******************************************************************************
 Tarea_Led_Testigo
+	LDX Est_Pres_LDTst			;Cargar prox estado para la ME LDTst
+	JSR 0,X					;Saltar al prox estado
+	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 1 ==========================
+LDTst_Est1
 	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
 	loc
 	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Green			;Apagar LED verde
+	BSET PTP,LD_Blue			;Encender LED RGB Azul
+	MOVW #LDTst_Est2,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
 	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-	LDAA PORTB				;Cargar valor actual de los LEDs
-	EORA #$80				;Hacer toggle al LED PB7
-	STAA PORTB				;Actualizar el valor de los LEDs
 FIN`	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 2 ==========================
+LDTst_Est2
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Blue			;Apagar LED RGB Azul
+	BSET PTP,LD_Red				;Encender LED RGB Rojo
+	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
+;============================== LED TESTIGO ESTADO 3 ==========================
+LDTst_Est3
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Red				;Apagar LED RGB Rojo
+	BSET PTP,LD_Green			;Encender LED RGB Verde
+	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
 
 ;******************************************************************************
 ;                       	TAREA TECLADO
@@ -399,6 +445,9 @@ SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 ;                       SUBRUTINA DE ATENCION A RTI
 ;******************************************************************************
 Maquina_Tiempos:
+	DEC CONT_OC			;Decrementar contador de llamadas a la ISR
+	BNE NO_DEC			;Saltar si el contador aun no es cero
+	MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
         LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
         JSR Decre_Timers_BaseT          ;Llamar a subrutina para decrementar timers
         LDD Timer1mS               	;Verificar si el timer de 1mS llegÃ³ a 0
@@ -427,6 +476,9 @@ NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S llegÃ³ a 0
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
 NOCERO` BSET CRGFLG,RTIF                ;Deshabilitar solicitud de interrupciÃ³n
         loc
+NO_DEC	LDD TCNT			;Cargar valor actual del timer
+	ADDD #480			;Cargar el valor inicial de comparación para el canal 4
+	STD TC4				;Guardar el nuevo valor de comparación
         RTI				;Retornar de la ISR
 
 ;******************************************************************************
