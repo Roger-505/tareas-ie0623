@@ -14,7 +14,7 @@ ram: as load
 # Targets
 as:
 	@echo "Assembling $(FILE).asm for $(PROCESSOR) processor..."
-	@$(ASSEMBLER) $(FILE).asm -L$(FILE).lst -s$(FILE).sym -o$(FILE).s19 -p$(PROCESSOR) > /dev/null
+	@$(ASSEMBLER) $(FILE).asm -L$(FILE).lst -s$(FILE).sym -o$(FILE).s19 -p$(PROCESSOR)
 	@echo "Assembly complete. Generated files: $(FILE).lst, $(FILE).sym, and $(FILE).s19."
 
 sim:
