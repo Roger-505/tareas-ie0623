@@ -216,8 +216,8 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	;Inicializar variables utilizadas en Tarea_Teclado
 	MOVB #$FF,Tecla				;Inicializar variable para almacenar tecla presionada
 	MOVB #$FF,Tecla_IN			;Inicializar variable para almacenar tecla presionada
-	MOVB #$00,CONT_TCL			;Inicializar offset para agregar teclas a Num_Array
-	MOVB #$00,Patron			;Inicilizar máscara para leer las teclas de PORTA
+	CLR CONT_TCL				;Inicializar offset para agregar teclas a Num_Array
+	CLR Patron				;Inicilizar máscara para leer las teclas de PORTA
 	MOVB #$05,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
 	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
@@ -250,10 +250,10 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
 	;Limpiar los timers por usar
         Movb #tTimerLDTst,Timer_LED_Testigo 
-        MOVB #$00,Timer_SHP
-        MOVB #$00,Timer_LP			
-        MOVB #$00,Timer_Reb_PB
-	MOVB #$00,Timer_RebTCL
+        CLR Timer_SHP
+        CLR Timer_LP			
+        CLR Timer_Reb_PB
+	CLR Timer_RebTCL
 	
 	; Inicialización para el uso de la salida por comparación
 	LDD TCNT		;Cargar valor actual del timer
