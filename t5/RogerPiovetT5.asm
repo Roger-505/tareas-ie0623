@@ -232,7 +232,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$06,DSP2
 	MOVB #$5B,DSP3
 	MOVB #$4F,DSP4
-	MOVB #$55,LEDS
+	MOVB #$AA,LEDS
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
