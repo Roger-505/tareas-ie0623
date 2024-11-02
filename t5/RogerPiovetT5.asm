@@ -18,7 +18,7 @@ tSuprRebTCL	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para los boton
 
 ; --- Aquí se colocan los valores asociados a Tarea_PantallaMUX ---
 tTimerDigito	EQU	2	;Valor de carga de Timer_Digito para multiplexación de displays
-MaxCountTicks	EQU	50
+MaxCountTicks	EQU	100
 DIG1		EQU	$01
 DIG2		EQU	$02
 DIG3		EQU	$04	
@@ -225,13 +225,14 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	;Inicializar variables utilizadas en Tarea_PantallaMUX
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Cargar estado inicial para la ME PantallaMUX
 	MOVB #1,Cont_Dig				;Cargar primer display por ser desplegado
+	MOVB #40,Brillo					;Definir brillo de los displays
 	CLR Timer_Digito				;Limpiar timer para multiplexar displays
 	CLR Counter_Ticks				;Limpiar timer para definir brillo de los displays
 	MOVB #$3F,DSP1
 	MOVB #$06,DSP2
 	MOVB #$5B,DSP3
 	MOVB #$4F,DSP4
-	MOVB #$AA,LEDS
+	MOVB #$55,LEDS
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
