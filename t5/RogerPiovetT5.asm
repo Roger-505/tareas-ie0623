@@ -13,17 +13,19 @@
 ;                                ENCABEZADO
 ;******************************************************************************
 
-;--- Aqui se colocan los valores de carga para los timers baseT  ----
-tTimer1mS    	EQU	1	;Base de tiempo de 1 mS (1 ms x 1)
-tTimer10mS    	EQU	10	;Base de tiempo de 10 mS (1 mS x 10)
-tTimer100mS   	EQU	100	;Base de tiempo de 100 mS (10 mS x 100)
-tTimer1S       	EQU	1000	;Base de tiempo de 1 segundo (100 mS x 10)
-
-; -- Aquí se colocan los valores de carga para los timers utilizados en el programa ---
+; --- Aquí se colocan los valores asociados a Tarea_Teclado --- 
 tSuprRebTCL	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para los botones del teclado
-tTimerLDTst    	EQU	5    	;Tiempo de parpadeo de LED testigo en segundos
 
-;--- Aqui se colocan los valores utilizados por Leer_PB
+; --- Aquí se colocan los valores asociados a Tarea_PantallaMUX ---
+tTimerDigito	EQU	2	;Valor de carga de Timer_Digito para multiplexación de displays
+MaxCountTicks	EQU	50
+DIG1		EQU	$01
+DIG2		EQU	$02
+DIG3		EQU	$04	
+DIG4		EQU	$08
+
+; --- Aquí se colocan los valores asociados a Tarea_LCD ---
+; --- Aquí se colocan los valores asociados a Tarea_LeerPB1 ---
 PortPB		EQU	PTIH	;Puerto en donde se ubican los botones en la Dragon12+2
 MaskPB       	EQU    	$01    	;Se define el bit del PB en el puerto
 tSupRebPB	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para el PB
@@ -31,31 +33,42 @@ tShortP     	EQU    	10     	;Tiempo mínimo ShortPress x 10mS
 tLongP		EQU   	2     	;Tiempo mínimo LongPress en segundos
 RTIF      	EQU   	$80    	;RTIF = CRGFLG.7. Para habilitar/deshabilitar RTI
 
+; --- Aquí se colocan los valores asociados a Tarea_TCM ---
 ; --- Aquí se colocan los valores utilizado por las variables bandera del programa ---
 ShortP		EQU	$01	;ShortP  = Banderas_PB.0
 LongP		EQU    	$02	;LongP   = Banderas_PB.1
 ArrayOK		EQU	$04	;ArrayOK = Banderas_PB.2
 
-; --- Aquí se colocan los valores utilizados por LDTst
-LD_Red		EQU	$10	
-LD_Green	EQU	$40
-LD_Blue		EQU	$20
+; --- Aquí se colocan los valores asociados a Tarea_Led_Testigo---
+tTimerLDTst    	EQU	5    	;Tiempo de parpadeo de LED testigo en segundos
+LD_Red		EQU	$10	;Máscara para encender LED rojo del LED RGB en PTP
+LD_Green	EQU	$40	;Máscara para encender LED verde del LED RGB en PTP
+LD_Blue		EQU	$20	;Máscara para encender LED azul del LED RGB en PTP
 
-; --- Aquí se colocan las máscaras para los bits de PORTA ---
-PA0		EQU	$01	;PA0 = PORTA.0
-PA1		EQU	$02	;PA1 = PORTA.1
-PA2		EQU	$04	;PA2 = PORTA.2
-PA3		EQU	$08	;PA3 = PORTA.3
+; --- Aquí se colocan los valores generales del programa ---
 
+;--- Aqui se colocan los valores de carga para los timers baseT  ----
+tTimer1mS    	EQU	1	;Base de tiempo de 1 mS (1 ms x 1)
+tTimer10mS    	EQU	10	;Base de tiempo de 10 mS (1 mS x 10)
+tTimer100mS   	EQU	100	;Base de tiempo de 100 mS (10 mS x 100)
+tTimer1S       	EQU	1000	;Base de tiempo de 1 segundo (100 mS x 10)
+
+;******************************************************************************
+;                    		ENCABEZADO ADICIONAL
+;******************************************************************************
 
 ; --- Aquí se colocan las direcciones de inicio de las estructuras de datos del programa ---
 INIT_TECLADO	EQU	$1000	;Inicio de estructuras de datos asociadas a Tarea_Teclado
 INIT_NUM_ARRAY	EQU	$1010	;Inicio de Num_Array
-INIT_BANDERAS	EQU	$100C	;Inicio de las banderas utilizadas en el programa
-INIT_LEERPB	EQU	$100D	;Inicio de estructuras de datos asociadas a LeerPB
+INIT_P_MUX	EQU	$1020	;Inicio de estructuras de datos asociadas a Tarea_PantallaMUX
+INIT_LCD	EQU	$102F	;Inicio de estructuras de datos asociadas a Tarea_LCD
+INIT_LEERPB1	EQU	$103F	;Inicio de estructuras de datos asociadas a Tarea_Leer_PB1
+INIT_TCM	EQU	$1041	;Inicio de estructuras de datos asociadas a Tarea_TCM
+INIT_BANDERAS	EQU	$1070	;Inicio de las banderas utilizadas en el programa
 INIT_LD_TST	EQU	$1080	;Inicio de estructuras de datos asociadas a LDTst
-INIT_T_TIMERS 	EQU   	$1040	;Inicio de la tabla de timers
-INIT_T_TECLAS	EQU	$1020	;Inicio de tabla de teclas válidas
+INIT_TABLAS	EQU	$1100 	;Inicio de las tablas de 7 segmentos, y teclas
+INIT_MSGS	EQU	$1200	;Inicio de los mensajes asociados a la pantalla LCD
+INIT_T_TIMERS 	EQU   	$1500 	;Inicio de la tabla de timers
 
 ; --- Aquí se colocan estructuras de datos misceláneas --- 
 INIT_PILA	EQU	$3BFF	;Valor inicial de la pila 
@@ -67,22 +80,45 @@ VEC_OC		EQU	$3E66	;Vector de interrupción Output Compare
 ;******************************************************************************
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Teclado ---
 	ORG INIT_TECLADO
-MAX_TCL		DS	1
-Tecla		DS	1
-Tecla_IN	DS	1
-Cont_TCL	DS	1
-Patron		DS	1
-Est_Pres_TCL	DS	2
+MAX_TCL		DS	1	;Tamaño máximo del arreglo Num_Array	
+Tecla		DS	1	;Variable de resultado de la subrutina LEER_TECLADO
+Tecla_IN	DS	1	;Variable temporal para almacenar Tecla
+Cont_TCL	DS	1	;Offset para tabla Teclas a partir de la lectura del teclado
+Patron		DS	1	;Máscara para lectura del teclado en el PORTA
+Est_Pres_TCL	DS	2	;Variable de próximo estado de la ME Tarea_Teclado
 	ORG INIT_NUM_ARRAY
-Num_Array	DS	5
+Num_Array	DS	5	;Arreglo para almacenar secuencia de teclas válida
+
+; --- Aquí se colocan las estructuras de datos asociadas a Tarea_PantallaMUX ---
+	ORG INIT_P_MUX
+EstPres_PantallaMUX	DS	2	;Variable de próximo estado de la ME Tarea_PantallaMUX
+DSP1		DS	1
+DSP2		DS	1
+DSP3		DS	1
+DSP4		DS	1
+LEDS		DS	1
+Cont_Dig	DS	1
+Brillo		DS	1
+BIN1		DS	1
+BIN2		DS	1
+BCD		DS	1
+Cont_BCD	DS	1
+BCD1		DS	1
+BCD2		DS	1
+
+; --- Aquí se colocan las estructuras de datos asociadas a Tarea_LCD --- 
+	ORG INIT_LCD
+
+; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Leer_PB1 --- 
+	ORG INIT_LEERPB1
+EstPres_LeerPB1	DS	2	;Variable de estado para la ME Leer_PB
+
+; --- Aquí se colocan las estructuras de datos asociadas a Tarea_TCM
+	ORG INIT_TCM
 
 ; --- Aquí se colocan las variables bandera utilizadas en el programa ---
 	ORG INIT_BANDERAS
 Banderas         	DS	1	;Banderas = X:X:X:X:X:Array_OK:LongP:ShortP
-
-; --- Aquí se colocan las estructuras de datos asociadas a Leer_PB --- 
-	ORG INIT_LEERPB
-Est_Press_LeerPB	DS	2	;Variable de estado para la ME Leer_PB
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Led_Testigo ---
 	ORG INIT_LD_TST
@@ -91,7 +127,17 @@ Est_Pres_LDTst		DS	2
 ;===============================================================================
 ;                              TABLA DE TECLAS
 ;===============================================================================
-	ORG INIT_T_TECLAS
+	ORG INIT_TABLAS
+Segment		DB	$3F	;'0' en 7 segmentos
+		DB	$06	;'1' en 7 segmentos
+		DB	$5B	;'2' en 7 segmentos
+		DB	$4F	;'3' en 7 segmentos
+		DB	$66	;'4' en 7 segmentos
+		DB	$6D	;'5' en 7 segmentos
+		DB	$7D	;'6' en 7 segmentos
+		DB	$07	;'7' en 7 segmentos
+		DB	$7F	;'8' en 7 segmentos
+		DB	$6F	;'9' en 7 segmentos
 Teclas		DB	$01	;(PA0 = 0) && (PA4 = 0) -> '1'
 		DB	$02	;(PA0 = 0) && (PA5 = 0) -> '2'
 		DB	$03	;(PA0 = 0) && (PA6 = 0) -> '3'
@@ -106,10 +152,16 @@ Teclas		DB	$01	;(PA0 = 0) && (PA4 = 0) -> '1'
              	DB	$0E	;(PA3 = 0) && (PA6 = 0) -> '#' -> Enter
 
 ;===============================================================================
+;                              	 MENSAJES
+;===============================================================================
+MSG	FCC "Microprocesadores IE0623"
+
+;===============================================================================
 ;                              TABLA DE TIMERS
 ;===============================================================================
     	Org INIT_T_TIMERS
 CONT_OC			ds	1	;Contador para llamadas a la ISR
+Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 Tabla_Timers_BaseT		
 Timer1mS 		ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
 Timer10mS		ds 	2       ;Timer para generar la base de tiempo 10 mS
@@ -120,6 +172,7 @@ Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
 Tabla_Timers_Base1mS
 Timer_Reb_PB  		ds    	1	;Timer para manejar los rebotes de los botones pulsadores
 Timer_RebTCL		ds	1	;Timer para manejar los rebotes de los botones del teclado
+Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
 Fin_Base1mS     	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base10mS
@@ -143,9 +196,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 ;                     	CONFIGURACION DE HARDWARE
 ;===============================================================================
 	ORG INIT_PROG
-	BSET DDRP,$70		;Habilitación del LED Testigo RGB
-	BSET PERP,$70		;Habilitar resistencias PU-PD para el puerto P
-	BSET PPSP,$70		;Habilitar pulldowns para PP[4:6]
+	BSET DDRP,$7F		;Definir puertos para el LED Testigo RGB y EN para displays
         ;Bset DDRB,$81         	;Habilitacion del LED Testigo
         Bset DDRJ,$02          	;como comprobacion del timer de 1 segundo
         BClr PTJ,$02         	;haciendo toogle
@@ -156,6 +207,8 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	BCLR TSCR2,$07		;Definir preescalador PRS = 1
 	BSET TIOS,$10		;Habilitar salida por comparación para el canal 4
 	BSET TIE,$10		;Habilitar interrupción por salida por comparación para el canal 4
+	BCLR PTP,$0F		;Habilitar displays de 7 segmentos
+	MOVB #$FF,DDRB		;Definir puertos para desplegar números en los displays 
 
 ;===============================================================================
 ;                           PROGRAMA PRINCIPAL
@@ -168,12 +221,23 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$05,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
 	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
+	
+	;Inicializar variables utilizadas en Tarea_PantallaMUX
+	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Cargar estado inicial para la ME PantallaMUX
+	MOVB #1,Cont_Dig				;Cargar primer display por ser desplegado
+	CLR Timer_Digito				;Limpiar timer para multiplexar displays
+	CLR Counter_Ticks				;Limpiar timer para definir brillo de los displays
+	MOVB #$3F,DSP1
+	MOVB #$06,DSP2
+	MOVB #$5B,DSP3
+	MOVB #$4F,DSP4
+	MOVB #$AA,LEDS
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
 
 	;Inicializar variables utilizadas en Leer_PB
-        MOVW #LeerPB_Est1,Est_Press_LeerPB	;Carga estado inicial para la ME Leer_PB
+        MOVW #LeerPB_Est1,EstPres_LeerPB1	;Carga estado inicial para la ME Leer_PB
 	
 	;Inicializar variables utilizadas en LDTst
 	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar estado inicial para parpadear el LED azul
@@ -202,50 +266,11 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         CLI					;Habilitar interrupciones no mascarables
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
+	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
         JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
-
-;******************************************************************************
-;                      		TAREA LED TESTIGO
-;******************************************************************************
-Tarea_Led_Testigo
-	LDX Est_Pres_LDTst			;Cargar prox estado para la ME LDTst
-	JSR 0,X					;Saltar al prox estado
-	RTS					;Retornar de la subrutina
-
-;============================== LED TESTIGO ESTADO 1 ==========================
-LDTst_Est1
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Green			;Apagar LED verde
-	BSET PTP,LD_Blue			;Encender LED RGB Azul
-	MOVW #LDTst_Est2,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS					;Retornar de la subrutina
-
-;============================== LED TESTIGO ESTADO 2 ==========================
-LDTst_Est2
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Blue			;Apagar LED RGB Azul
-	BSET PTP,LD_Red				;Encender LED RGB Rojo
-	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS
-;============================== LED TESTIGO ESTADO 3 ==========================
-LDTst_Est3
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Red				;Apagar LED RGB Rojo
-	BSET PTP,LD_Green			;Encender LED RGB Verde
-	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS
 
 ;******************************************************************************
 ;                       	TAREA TECLADO
@@ -340,11 +365,11 @@ LEER_TECLADO
 	MOVB #$EF,Patron		;Cargar valor inicial para desplazar las teclas
 	loc
 SIGA`	MOVB Patron,PORTA		;Cargar patron al puerto A, para accesar al teclado 
-	BRCLR PORTA,PA0,COPIE`		;Saltar si la tecla presionada está en la columna 0
+	BRCLR PORTA,$01,COPIE`		;Saltar si la tecla presionada está en la columna 0
 	INCB 				;Incrementar contador para verificar si está en la columna 1
-	BRCLR PORTA,PA1,COPIE`		;Saltar si la tecla presionada está en la columna 1
+	BRCLR PORTA,$02,COPIE`		;Saltar si la tecla presionada está en la columna 1
 	INCB				;Incrementar contador para verificar si está en la columna 2
-	BRCLR PORTA,PA2,COPIE`		;Saltar si la tecla presionada está en la columna 2
+	BRCLR PORTA,$04,COPIE`		;Saltar si la tecla presionada está en la columna 2
 	INCB				;Incrementar contador para verificar las teclas en el próximo ciclo
 	LDAA Patron			;Cargar máscara para desplazar 0 en la parte alta de PORTA
 	CMPA #$7F			;Verificar si ya se llegó a la última fila
@@ -358,61 +383,6 @@ COPIE`	LDX #Teclas			;Cargar dirección base de tabla con teclas
 	MOVB B,X,Tecla			;Actualizar tecla presionada
 FIN`	RTS				;Retornar de la subrutina
 
-;******************************************************************************
-;                               TAREA LEER PB
-;******************************************************************************
-Tarea_Leer_PB
-        LDX Est_Press_LeerPB		;Cargar dirección de la subrutina asociada al estado presente
-        JSR 0,X				;Ejecutar subrutina asociada al estado presente
-        RTS				;Retornar de la subrutina
-
-;============================== LEER PB ESTADO 1 =============================
-LeerPB_Est1
-        BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
-	loc
-        BRA FIN1                    		;Salte si ya se presionó el botón
-LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
-        MOVB #tShortP,Timer_SHP        		;Cargar timer de short press
-        MOVB #tLongP,Timer_LP        		;Cargar timer de long press
-        MOVW #LeerPB_Est2,Est_Press_LeerPB    	;Actualizar el próximo estado
-FIN1	RTS                                	;Retornar de subrutina
-
-;============================== LEER PB ESTADO 2 =============================
-LeerPB_Est2
-        TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
-	loc
-        BNE FIN2                          	;Saltar si el timer no ha llegado a cero
-        BRCLR PortPB,MaskPB,N_FALSO             ;Salte si no se detectó una falsa lectura
-        MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Como la lectura es inválido, vuelva al estado inicial
-        BRA FIN2	                      	;Saltar para terminar la subrutina
-N_FALSO	MOVW #LeerPB_Est3,Est_Press_LeerPB    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
-FIN2	RTS                                    	;Fin de la subrutina
-
-;============================== LEER PB ESTADO 3 =============================
-LeerPB_Est3
-        TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
-	loc
-        BNE FIN3                          	;Saltar si el timer ya llegó a cero
-        BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP             	;Habilitar bandera de short press 
-        MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Cambiar al estado inicial, ya que fue short press
-        BRA FIN3                        	;Saltar para terminar la subrutina
-NO_SHP  MOVW #LeerPB_Est4,Est_Press_LeerPB    	;Cambiar al estado 4, para verificar si es long press
-FIN3	RTS					;Retornar de la subrutina
-
-;============================== LEER PB ESTADO 4 =============================
-LeerPB_Est4
-        TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
-        BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
-	loc
-        BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,LongP             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
-        BRA I_EST                             	;Saltar para transicionar al estado inicial
-T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP            	;Habilitar bandera de long press, ya que se verificó que sí es
-I_EST   MOVW #LeerPB_Est1,Est_Press_LeerPB    	;Cambiar al estado inicial
-FIN4	RTS					;Retornar de la subrutina
-       
 ;******************************************************************************
 ;                               TAREA BORRAR_TCL
 ;******************************************************************************
@@ -431,6 +401,157 @@ OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
 FIN`	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
+;                       	TAREA PANTALLA MUX
+;******************************************************************************
+Tarea_PantallaMUX
+	LDX EstPres_PantallaMUX		;Cargar dirección de la subrutina para el próximo estado
+	JSR 0,X				;Saltar a la subrutina del próximo estado
+	RTS				;Retornar de la subrutina 
+
+;============================== TECLADO ESTADO 1 =============================
+PantallaMUX_Est1
+	TST Timer_Digito		;Verificar si el timer de dígito ha llegado a cero
+	loc 
+	BNE FIN`			;Saltar si el timer ya llegó a cero
+	MOVB #tTimerDigito,Timer_Digito	;Recargar timer de digito
+	LDAA Cont_Dig			;Cargar contador de digito
+	CMPA #1				;Verificar si se va desplegar el dígito 1
+	BEQ DIGITO1			;Saltar si se va desplegar el digito 1
+	CMPA #2				;Verificar si se va desplegar el dígito 2
+	BEQ DIGITO2			;Saltar si se va desplegar el digito 2
+	CMPA #3				;Verificar si se va desplegar el dígito 3
+	BEQ DIGITO3			;Saltar si se va desplegar el digito 3
+	CMPA #4				;Verificar si se va desplegar el dígito 4
+	BEQ DIGITO4			;Saltar si se va desplegar el digito 4
+	BRA DIGITO5			;Como caso por defecto, se va desplegar el digito 5 (LEDs)
+DIGITO1	BCLR PTP,DIG1			;Habilitar primer dígito
+	MOVB DSP1,PORTB			;Desplegar valor en el primer dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO2 BCLR PTP,DIG2			;Habilitar segundo dígito
+	MOVB DSP2,PORTB			;Desplegar valor en el segundo dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO3	BCLR PTP,DIG3			;Habilitar tercer dígito
+	MOVB DSP3,PORTB			;Desplegar valor del tercer dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO4 BCLR PTP,DIG4			;Habilitar cuarto dígito
+	MOVB DSP4,PORTB			;Desplegar valor del cuarto dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO5	BCLR PTJ,$02			;Habilitar quinto dígito (ánodo de los LEDs)
+	MOVB LEDS,PORTB			;Desplegar valor del quinto dígito
+	MOVB #1,Cont_Dig		;Reiniciar el contador de dígito
+	BRA TICKS`			;Saltar para iniciar el contador de ticks
+INCRE`	INC Cont_Dig			;Incrementar el contador de dígito
+TICKS`	MOVB #MaxCountTicks,Counter_Ticks		;Iniciar el contador de ticks
+	MOVW #PantallaMUX_Est2,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 2
+FIN`	RTS				;Retornar de la subrutina
+
+;============================== TECLADO ESTADO 2 =============================
+PantallaMUX_Est2
+	LDAA Counter_Ticks		;Cargar contador de ticks
+	CMPA Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
+	loc
+	BNE FIN` 			;Saltar si ya se llegó al valor de brillo
+	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
+	BSET PTJ,$02			;Deshabilitar LEDs
+	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
+FIN`	RTS				;Retornar de la subrutina
+
+;******************************************************************************
+;                      		TAREA LED TESTIGO
+;******************************************************************************
+Tarea_Led_Testigo
+	LDX Est_Pres_LDTst			;Cargar prox estado para la ME LDTst
+	JSR 0,X					;Saltar al prox estado
+	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 1 ==========================
+LDTst_Est1
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Green			;Apagar LED verde
+	BSET PTP,LD_Blue			;Encender LED RGB Azul
+	MOVW #LDTst_Est2,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 2 ==========================
+LDTst_Est2
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Blue			;Apagar LED RGB Azul
+	BSET PTP,LD_Red				;Encender LED RGB Rojo
+	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
+;============================== LED TESTIGO ESTADO 3 ==========================
+LDTst_Est3
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Red				;Apagar LED RGB Rojo
+	BSET PTP,LD_Green			;Encender LED RGB Verde
+	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
+
+;******************************************************************************
+;                               TAREA LEER PB
+;******************************************************************************
+Tarea_Leer_PB
+        LDX EstPres_LeerPB1		;Cargar dirección de la subrutina asociada al estado presente
+        JSR 0,X				;Ejecutar subrutina asociada al estado presente
+        RTS				;Retornar de la subrutina
+
+;============================== LEER PB ESTADO 1 =============================
+LeerPB_Est1
+        BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
+	loc
+        BRA FIN1                    		;Salte si ya se presionó el botón
+LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
+        MOVB #tShortP,Timer_SHP        		;Cargar timer de short press
+        MOVB #tLongP,Timer_LP        		;Cargar timer de long press
+        MOVW #LeerPB_Est2,EstPres_LeerPB1    	;Actualizar el próximo estado
+FIN1	RTS                                	;Retornar de subrutina
+
+;============================== LEER PB ESTADO 2 =============================
+LeerPB_Est2
+        TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
+	loc
+        BNE FIN2                          	;Saltar si el timer no ha llegado a cero
+        BRCLR PortPB,MaskPB,N_FALSO             ;Salte si no se detectó una falsa lectura
+        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Como la lectura es inválido, vuelva al estado inicial
+        BRA FIN2	                      	;Saltar para terminar la subrutina
+N_FALSO	MOVW #LeerPB_Est3,EstPres_LeerPB1    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
+FIN2	RTS                                    	;Fin de la subrutina
+
+;============================== LEER PB ESTADO 3 =============================
+LeerPB_Est3
+        TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
+	loc
+        BNE FIN3                          	;Saltar si el timer ya llegó a cero
+        BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
+        BSET Banderas,ShortP             	;Habilitar bandera de short press 
+        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial, ya que fue short press
+        BRA FIN3                        	;Saltar para terminar la subrutina
+NO_SHP  MOVW #LeerPB_Est4,EstPres_LeerPB1    	;Cambiar al estado 4, para verificar si es long press
+FIN3	RTS					;Retornar de la subrutina
+
+;============================== LEER PB ESTADO 4 =============================
+LeerPB_Est4
+        TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
+        BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
+	loc
+        BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
+        BSET Banderas,LongP             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
+        BRA I_EST                             	;Saltar para transicionar al estado inicial
+T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
+        BSET Banderas,ShortP            	;Habilitar bandera de long press, ya que se verificó que sí es
+I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
+FIN4	RTS					;Retornar de la subrutina
+       
+;******************************************************************************
 ;                       SUBRUTINA BORRAR_NUM_ARRAY
 ;******************************************************************************
 BORRAR_NUM_ARRAY
@@ -445,7 +566,11 @@ SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 ;                       SUBRUTINA DE ATENCION A RTI
 ;******************************************************************************
 Maquina_Tiempos:
-	DEC CONT_OC			;Decrementar contador de llamadas a la ISR
+	LDAA Counter_Ticks		;Cargar contador de ticks
+	loc
+	BEQ SIGA`			;Saltar si el contador de ticks ya llegó a cero
+	DEC Counter_Ticks		;Decrementar contador de ticks
+SIGA` 	DEC CONT_OC			;Decrementar contador de llamadas a la ISR
 	BNE NO_DEC			;Saltar si el contador aun no es cero
 	MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
         LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
