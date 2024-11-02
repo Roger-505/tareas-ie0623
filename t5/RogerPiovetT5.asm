@@ -267,6 +267,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
         CLI					;Habilitar interrupciones no mascarables
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
+	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
         JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
@@ -401,6 +402,17 @@ OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
 	JSR BORRAR_NUM_ARRAY		;Saltar a subrutina para borrar Num_Array
 FIN`	RTS				;Retornar de la subrutina
 
+;******************************************************************************
+;                       	TAREA CONVERSIÓN
+;******************************************************************************
+	LDAA BIN1			;Cargar parte alta de valor binario a convertir
+	JSR BIN_BCD_MUXP		;Saltar a subrutina para convertir parte baja de valor BIN a BCD
+	MOVB BCD,BCD1			;Guardar resultado de la conversión a BCD en BCD1
+	LDAA BIN2			;Cargar parte baja del valor binario a convertir
+	JSR BIN_BCD_MUXP		;Saltar a subrutina para convertir parte alta del valor BIN a BCD
+	MOVB BCD,BCD2			;Guardar resultado de la conversión a BCD en BCD2
+	JSR BCD_7SEG			;Saltar a subrutina para convertir valor BCD a 7Seg
+	RTS 				;Retornar de la subrutina
 ;******************************************************************************
 ;                       	TAREA PANTALLA MUX
 ;******************************************************************************
