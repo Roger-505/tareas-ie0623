@@ -233,6 +233,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #$5B,DSP3
 	MOVB #$4F,DSP4
 	MOVB #$AA,LEDS
+	MOVB #$0F,BIN1
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
@@ -405,6 +406,7 @@ FIN`	RTS				;Retornar de la subrutina
 ;******************************************************************************
 ;                       	TAREA CONVERSIÓN
 ;******************************************************************************
+Tarea_Conversion
 	LDAA BIN1			;Cargar parte alta de valor binario a convertir
 	JSR BIN_BCD_MUXP		;Saltar a subrutina para convertir parte baja de valor BIN a BCD
 	MOVB BCD,BCD1			;Guardar resultado de la conversión a BCD en BCD1
@@ -413,6 +415,43 @@ FIN`	RTS				;Retornar de la subrutina
 	MOVB BCD,BCD2			;Guardar resultado de la conversión a BCD en BCD2
 	JSR BCD_7SEG			;Saltar a subrutina para convertir valor BCD a 7Seg
 	RTS 				;Retornar de la subrutina
+
+;******************************************************************************
+;                       	SUBRUTINA BIN_BCD_MUXP
+;******************************************************************************
+BIN_BCD_MUXP
+	MOVB #7,Cont_BCD	;Cargar contador de desplazamientos menos uno
+	CLR BCD			;Limpiar variable de resultado
+	loc
+SIGA`	LSLA			;Desplazar valor binario, de acuerdo al algoritmo XS3	
+	ROL BCD			;Rotar variable de resultado, de acuerdo al algoritmo XS3
+	PSHA			;Apilar temporalmente el valor binario
+	LDAA BCD		;Cargar variable de resultado hasta el momento
+	ANDA #$0F		;Obtener nibble inferior de la variable de resultado
+	CMPA #5			;Verificar si el nibble es mayor o igual que 5
+	BHS SUME3`		;Saltar si el nibble es mayor o igual que 5
+	BRA SIGA3`		;Saltar si el nibble es menor que 5
+SUME3`	ADDA #3			;Sumar 3 al nibble inferior, de acuerdo al algoritmo XS3
+SIGA3`	TFR A,B			;Guardar temporalmente el resultado del nibble inferior
+	LDAA BCD		;Cargar variable de resultado hasta el momento
+	ANDA #$F0		;Obtener nibble superior de la variable de resultado
+	CMPA #$50		;Verificar si el nibble es mayor o igual que 5
+	BHS SUME30`		;Saltar si el nibble es mayor o igual que 5
+	BRA SIGA30`		;Saltar si el nibble es menor que 5
+SUME30`	ADDA #$30		;Sumar 3 al nibble superior, de acuerdo al algoritmo XS3
+SIGA30`	ABA			;Sumar el resultado de ambos nibbles
+	STAA BCD		;Guardar suma de nibbles en la variable de resultado
+	PULA 			;Desapilar el valor binario apilado temporalmente
+	DEC Cont_BCD		;Decrementar contador de desplazamientos
+	BNE SIGA`		;Saltar si la cantidad de desplazamientos no ha llegado a cero
+	LSLA			;Despalzar por última vez el valor binario
+	ROL BCD			;Rotar por última vez la variable de resultado
+	RTS			;Retornar de la subrutina
+;******************************************************************************
+;                       	SUBRUTINA BCD_7SEG
+;******************************************************************************
+BCD_7SEG
+	RTS				;Retornar de las subrutina
 ;******************************************************************************
 ;                       	TAREA PANTALLA MUX
 ;******************************************************************************
