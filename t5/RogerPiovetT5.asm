@@ -48,6 +48,7 @@ LD_Green	EQU	$40	;Máscara para encender LED verde del LED RGB en PTP
 LD_Blue		EQU	$20	;Máscara para encender LED azul del LED RGB en PTP
 
 ; --- Aquí se colocan los valores generales del programa ---
+Carga_TC4	EQU	480	;Valor de carga a TC4 para configurar OC a 50kHz para Maquina_Tiempos
 
 ;--- Aqui se colocan los valores de carga para los timers baseT  ----
 tTimer1mS    	EQU	1	;Base de tiempo de 1 mS (1 ms x 1)
@@ -219,7 +220,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	Bset PUCR,$01		;Habilitar pullups en PORTA
 
 	;Configuración de hardware para el módulo de Timer Output Compare
-	MOVB #480,TC4		;Cargar timer de comparación para Output Compare
+	MOVB #Carga_TC4,TC4		;Cargar timer de comparación para Output Compare
 	BSET TSCR1,$90		;Habilitar módulo TIMER
 	BCLR TSCR2,$07		;Definir preescalador PRS = 1
 	BSET TIOS,$10		;Habilitar salida por comparación para el canal 4
@@ -280,7 +281,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	
 	; Inicialización para el uso de la salida por comparación
 	LDD TCNT				;Cargar valor actual del timer
-	ADDD #480				;Cargar el valor inicial de comparación para el canal 4
+	ADDD #Carga_TC4				;Cargar el valor inicial de comparación para el canal 4
 	STD TC4					;Guardar el nuevo valor de comparación
 	MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
 
@@ -716,7 +717,7 @@ NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S llegÃ³ a 0
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
 NOCERO` loc
 NODECRE	LDD TCNT			;Cargar valor actual del timer
-	ADDD #480			;Cargar el valor inicial de comparación para el canal 4
+	ADDD #Carga_TC4			;Cargar el valor inicial de comparación para el canal 4
 	STD TC4				;Guardar el nuevo valor de comparación
         RTI				;Retornar de la ISR
 
