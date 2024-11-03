@@ -17,11 +17,11 @@ tSuprRebTCL	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para los boton
 
 ; --- Aquí se colocan los valores asociados a Tarea_PantallaMUX ---
 tTimerDigito	EQU	2	;Valor de carga de Timer_Digito para multiplexación de displays
-MaxCountTicks	EQU	100
-DIG1		EQU	$01
-DIG2		EQU	$02
-DIG3		EQU	$04	
-DIG4		EQU	$08
+MaxCountTicks	EQU	100	;Valor máximo de ticks al desplegar un dígito en los displays
+DIG1		EQU	$01	;Habilitación en PTP del display 1
+DIG2		EQU	$02	;Habilitación en PTP del display 2
+DIG3		EQU	$04	;Habilitación en PTP del display 3
+DIG4		EQU	$08	;Habilitación en PTP del display 4
 
 ; --- Aquí se colocan los valores asociados a Tarea_LCD ---
 ; --- Aquí se colocan los valores asociados a Tarea_LeerPB1 ---
@@ -33,6 +33,9 @@ tLongP		EQU   	2     	;Tiempo mínimo LongPress en segundos
 RTIF      	EQU   	$80    	;RTIF = CRGFLG.7. Para habilitar/deshabilitar RTI
 
 ; --- Aquí se colocan los valores asociados a Tarea_TCM ---
+tSegundosTCM	EQU	15	;Valor de carga para el timer de segundos en Tarea_TCM
+tMinutosTCM	EQU	1	;Valor de carga para el timer de minutos en Tarea_TCM
+
 ; --- Aquí se colocan los valores utilizado por las variables bandera del programa ---
 ShortP		EQU	$01	;ShortP  = Banderas_PB.0
 LongP		EQU    	$02	;LongP   = Banderas_PB.1
@@ -104,7 +107,6 @@ BCD		DS	1
 Cont_BCD	DS	1
 BCD1		DS	1
 BCD2		DS	1
-TEMP 		DS	1
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_LCD --- 
 	ORG INIT_LCD
@@ -115,6 +117,8 @@ EstPres_LeerPB1	DS	2	;Variable de estado para la ME Leer_PB
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_TCM
 	ORG INIT_TCM
+Est_Pres_TCM	DS	2	;Variable de estado para la ME TCM
+MinutosTCM	DS	1	;Timer para el conteo de minutos y despliegue de MSGs en LCD
 
 ; --- Aquí se colocan las variables bandera utilizadas en el programa ---
 	ORG INIT_BANDERAS
@@ -122,7 +126,7 @@ Banderas         	DS	1	;Banderas = X:X:X:X:X:Array_OK:LongP:ShortP
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Led_Testigo ---
 	ORG INIT_LD_TST
-Est_Pres_LDTst		DS	2
+Est_Pres_LDTst		DS	2	;Variable de estado para la ME Led_Testigo
 
 ;===============================================================================
 ;                              TABLA DE TECLAS
@@ -184,10 +188,15 @@ Fin_Base100mS   	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1S
 Timer_LP            	ds    	1	;Timer para identificar un long press	
+Timer_SegundosTCM	ds	1	;Timer para despliegue de mensajes en LCD en Tarea_TCM
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
+;===============================================================================
+;                       CONTROL DE MÁQUINA DE TIEMPOS
+;===============================================================================
 CONT_OC			ds	1	;Contador para llamadas a la ISR
 Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
+
 ;******************************************************************************
 ;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
 ;******************************************************************************
@@ -270,12 +279,245 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
         CLI					;Habilitar interrupciones no mascarables
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
+        JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
+	JSR Tarea_TCM				;Despacha Tarea_TCM
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
-        ;JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
+
+;******************************************************************************
+;                      		TAREA LED TESTIGO
+;******************************************************************************
+Tarea_Led_Testigo
+	LDX Est_Pres_LDTst			;Cargar prox estado para la ME LDTst
+	JSR 0,X					;Saltar al prox estado
+	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 1 ==========================
+LDTst_Est1
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Green			;Apagar LED verde
+	BSET PTP,LD_Blue			;Encender LED RGB Azul
+	MOVW #LDTst_Est2,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS					;Retornar de la subrutina
+
+;============================== LED TESTIGO ESTADO 2 ==========================
+LDTst_Est2
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Blue			;Apagar LED RGB Azul
+	BSET PTP,LD_Red				;Encender LED RGB Rojo
+	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
+;============================== LED TESTIGO ESTADO 3 ==========================
+LDTst_Est3
+	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
+	BCLR PTP,LD_Red				;Apagar LED RGB Rojo
+	BSET PTP,LD_Green			;Encender LED RGB Verde
+	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
+	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
+FIN`	RTS
+
+;******************************************************************************
+;                               TAREA LEER PB
+;******************************************************************************
+Tarea_Leer_PB
+        LDX EstPres_LeerPB1		;Cargar dirección de la subrutina asociada al estado presente
+        JSR 0,X				;Ejecutar subrutina asociada al estado presente
+        RTS				;Retornar de la subrutina
+
+;============================== LEER PB ESTADO 1 =============================
+LeerPB_Est1
+        BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
+	loc
+        BRA FIN1                    		;Salte si ya se presionó el botón
+LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
+        MOVB #tShortP,Timer_SHP        		;Cargar timer de short press
+        MOVB #tLongP,Timer_LP        		;Cargar timer de long press
+        MOVW #LeerPB_Est2,EstPres_LeerPB1    	;Actualizar el próximo estado
+FIN1	RTS                                	;Retornar de subrutina
+
+;============================== LEER PB ESTADO 2 =============================
+LeerPB_Est2
+        TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
+	loc
+        BNE FIN2                          	;Saltar si el timer no ha llegado a cero
+        BRCLR PortPB,MaskPB,N_FALSO             ;Salte si no se detectó una falsa lectura
+        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Como la lectura es inválido, vuelva al estado inicial
+        BRA FIN2	                      	;Saltar para terminar la subrutina
+N_FALSO	MOVW #LeerPB_Est3,EstPres_LeerPB1    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
+FIN2	RTS                                    	;Fin de la subrutina
+
+;============================== LEER PB ESTADO 3 =============================
+LeerPB_Est3
+        TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
+	loc
+        BNE FIN3                          	;Saltar si el timer ya llegó a cero
+        BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
+        BSET Banderas,ShortP             	;Habilitar bandera de short press 
+        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial, ya que fue short press
+        BRA FIN3                        	;Saltar para terminar la subrutina
+NO_SHP  MOVW #LeerPB_Est4,EstPres_LeerPB1    	;Cambiar al estado 4, para verificar si es long press
+FIN3	RTS					;Retornar de la subrutina
+
+;============================== LEER PB ESTADO 4 =============================
+LeerPB_Est4
+        TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
+        BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
+	loc
+        BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
+        BSET Banderas,LongP             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
+        BRA I_EST                             	;Saltar para transicionar al estado inicial
+T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
+        BSET Banderas,ShortP            	;Habilitar bandera de long press, ya que se verificó que sí es
+I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
+FIN4	RTS					;Retornar de la subrutina
+       
+;******************************************************************************
+;                       	TAREA TCM
+;******************************************************************************
+Tarea_TCM
+	LDX Est_Pres_TCM		;Cargar dirección de la subrutina para el estado presente
+	;JSR 0,X			;Saltar a la subrutina del estado presente
+	RTS				;Retornar de la subrutina
+
+;******************************************************************************
+;                       	TAREA CONVERSIÓN
+;******************************************************************************
+Tarea_Conversion
+	LDAA BIN1		;Cargar parte alta de valor binario a convertir
+	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte baja de valor BIN a BCD
+	MOVB BCD,BCD1		;Guardar resultado de la conversión a BCD en BCD1
+	LDAA BIN2		;Cargar parte baja del valor binario a convertir
+	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte alta del valor BIN a BCD
+	MOVB BCD,BCD2		;Guardar resultado de la conversión a BCD en BCD2
+	JSR BCD_7SEG		;Saltar a subrutina para convertir valor BCD a 7Seg
+	RTS 			;Retornar de la subrutina
+
+;******************************************************************************
+;                       	SUBRUTINA BIN_BCD_MUXP
+;******************************************************************************
+BIN_BCD_MUXP
+	MOVB #$07,Cont_BCD	;Cargar contador de desplazamientos menos uno
+	CLR BCD			;Limpiar variable de resultado
+	loc
+SIGA`	LSLA			;Desplazar valor binario, de acuerdo al algoritmo XS3	
+	ROL BCD			;Rotar variable de resultado, de acuerdo al algoritmo XS3
+	PSHA			;Apilar temporalmente el valor binario
+	LDAA BCD		;Cargar variable de resultado hasta el momento
+	ANDA #$0F		;Obtener nibble inferior de la variable de resultado
+	CMPA #5			;Verificar si el nibble es mayor o igual que 5
+	BHS SUME3`		;Saltar si el nibble es mayor o igual que 5
+	BRA SIGA3`		;Saltar si el nibble es menor que 5
+SUME3`	ADDA #3			;Sumar 3 al nibble inferior, de acuerdo al algoritmo XS3
+SIGA3`	TFR A,B			;Guardar temporalmente el resultado del nibble inferior
+	LDAA BCD		;Cargar variable de resultado hasta el momento
+	ANDA #$F0		;Obtener nibble superior de la variable de resultado
+	CMPA #$50		;Verificar si el nibble es mayor o igual que 5
+	BHS SUME30`		;Saltar si el nibble es mayor o igual que 5
+	BRA SIGA30`		;Saltar si el nibble es menor que 5
+SUME30`	ADDA #$30		;Sumar 3 al nibble superior, de acuerdo al algoritmo XS3
+SIGA30`	ABA			;Sumar el resultado de ambos nibbles
+	STAA BCD		;Guardar suma de nibbles en la variable de resultado
+	PULA 			;Desapilar el valor binario apilado temporalmente
+	DEC Cont_BCD		;Decrementar contador de desplazamientos
+	BNE SIGA`		;Saltar si la cantidad de desplazamientos no ha llegado a cero
+	LSLA			;Desplazar por última vez el valor binario
+	ROL BCD			;Desplazar por última vez la variable de resultado
+	RTS			;Retornar de la subrutina
+
+;******************************************************************************
+;                       	SUBRUTINA BCD_7SEG
+;******************************************************************************
+BCD_7SEG
+	loc
+	LDX #Segment		;Cargar dirección base de tabla con códigos de 7 Segmentos
+	LDAA BCD2		;Cargar valor superior de los displays
+	ANDA #$F0		;Obtener nibble superior (DSP1)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
+	MOVB A,X,DSP1		;Actualizar valor desplegado en el display DSP2
+	LDAA BCD2		;Cargar valor superior de los displays
+	ANDA #$0F		;Obtener nibble inferior (DSP2)
+	MOVB A,X,DSP2		;Actualizar valor desplegado en el display DSP2
+	LDAA BCD1		;Cargar valor inferior de los displays
+	ANDA #$F0		;Obtener nibble superior (DSP3)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
+	MOVB A,X,DSP3		;Actualizar valor desplegado en el display DSP3
+	LDAA BCD1		;Cargar valor superior de los displays
+	ANDA #$0F		;Obtener nibble inferior (DSP4)
+	MOVB A,X,DSP4		;Actualizar valor desplegado en el display DSP4
+	RTS			;Retornar de las subrutina
+
+;******************************************************************************
+;                       	TAREA PANTALLA MUX
+;******************************************************************************
+Tarea_PantallaMUX
+	LDX EstPres_PantallaMUX		;Cargar dirección de la subrutina para el próximo estado
+	JSR 0,X				;Saltar a la subrutina del próximo estado
+	RTS				;Retornar de la subrutina 
+
+;============================== TECLADO ESTADO 1 =============================
+PantallaMUX_Est1
+	TST Timer_Digito		;Verificar si el timer de dígito ha llegado a cero
+	loc 
+	BNE FIN`			;Saltar si el timer ya llegó a cero
+	MOVB #tTimerDigito,Timer_Digito	;Recargar timer de digito
+	LDAA Cont_Dig			;Cargar contador de digito
+	CMPA #1				;Verificar si se va desplegar el dígito 1
+	BEQ DIGITO1			;Saltar si se va desplegar el digito 1
+	CMPA #2				;Verificar si se va desplegar el dígito 2
+	BEQ DIGITO2			;Saltar si se va desplegar el digito 2
+	CMPA #3				;Verificar si se va desplegar el dígito 3
+	BEQ DIGITO3			;Saltar si se va desplegar el digito 3
+	CMPA #4				;Verificar si se va desplegar el dígito 4
+	BEQ DIGITO4			;Saltar si se va desplegar el digito 4
+	BRA DIGITO5			;Como caso por defecto, se va desplegar el digito 5 (LEDs)
+DIGITO1	BCLR PTP,DIG1			;Habilitar primer dígito
+	MOVB DSP1,PORTB			;Desplegar valor en el primer dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO2 BCLR PTP,DIG2			;Habilitar segundo dígito
+	MOVB DSP2,PORTB			;Desplegar valor en el segundo dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO3	BCLR PTP,DIG3			;Habilitar tercer dígito
+	MOVB DSP3,PORTB			;Desplegar valor del tercer dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO4 BCLR PTP,DIG4			;Habilitar cuarto dígito
+	MOVB DSP4,PORTB			;Desplegar valor del cuarto dígito
+	BRA INCRE`			;Saltar para incrementar el contador de dígito
+DIGITO5	BCLR PTJ,$02			;Habilitar quinto dígito (ánodo de los LEDs)
+	MOVB LEDS,PORTB			;Desplegar valor del quinto dígito
+	MOVB #1,Cont_Dig		;Reiniciar el contador de dígito
+	BRA TICKS`			;Saltar para iniciar el contador de ticks
+INCRE`	INC Cont_Dig			;Incrementar el contador de dígito
+TICKS`	MOVB #MaxCountTicks,Counter_Ticks		;Iniciar el contador de ticks
+	MOVW #PantallaMUX_Est2,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 2
+FIN`	RTS				;Retornar de la subrutina
+
+;============================== TECLADO ESTADO 2 =============================
+PantallaMUX_Est2
+	LDAA Counter_Ticks		;Cargar contador de ticks
+	CMPA Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
+	loc
+	BNE FIN` 			;Saltar si ya se llegó al valor de brillo
+	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
+	BSET PTJ,$02			;Deshabilitar LEDs
+	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
+FIN`	RTS						;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       	TAREA TECLADO
@@ -415,233 +657,6 @@ BORRAR_NUM_ARRAY
 SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 	DBNE A,SIGA`			;Decrementar y saltar si no se ha barrido el arreglo completo
 	RTS				;Retornar de la subrutina
-
-;******************************************************************************
-;                       	TAREA CONVERSIÓN
-;******************************************************************************
-Tarea_Conversion
-	LDAA BIN1		;Cargar parte alta de valor binario a convertir
-	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte baja de valor BIN a BCD
-	MOVB BCD,BCD1		;Guardar resultado de la conversión a BCD en BCD1
-	LDAA BIN2		;Cargar parte baja del valor binario a convertir
-	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte alta del valor BIN a BCD
-	MOVB BCD,BCD2		;Guardar resultado de la conversión a BCD en BCD2
-	JSR BCD_7SEG		;Saltar a subrutina para convertir valor BCD a 7Seg
-	RTS 			;Retornar de la subrutina
-
-;******************************************************************************
-;                       	SUBRUTINA BIN_BCD_MUXP
-;******************************************************************************
-BIN_BCD_MUXP
-	MOVB #$07,Cont_BCD	;Cargar contador de desplazamientos menos uno
-	CLR BCD			;Limpiar variable de resultado
-	loc
-SIGA`	LSLA			;Desplazar valor binario, de acuerdo al algoritmo XS3	
-	ROL BCD			;Rotar variable de resultado, de acuerdo al algoritmo XS3
-	PSHA			;Apilar temporalmente el valor binario
-	;STAA TEMP
-	LDAA BCD		;Cargar variable de resultado hasta el momento
-	ANDA #$0F		;Obtener nibble inferior de la variable de resultado
-	CMPA #5			;Verificar si el nibble es mayor o igual que 5
-	BHS SUME3`		;Saltar si el nibble es mayor o igual que 5
-	BRA SIGA3`		;Saltar si el nibble es menor que 5
-SUME3`	ADDA #3			;Sumar 3 al nibble inferior, de acuerdo al algoritmo XS3
-SIGA3`	TFR A,B			;Guardar temporalmente el resultado del nibble inferior
-	LDAA BCD		;Cargar variable de resultado hasta el momento
-	ANDA #$F0		;Obtener nibble superior de la variable de resultado
-	CMPA #$50		;Verificar si el nibble es mayor o igual que 5
-	BHS SUME30`		;Saltar si el nibble es mayor o igual que 5
-	BRA SIGA30`		;Saltar si el nibble es menor que 5
-SUME30`	ADDA #$30		;Sumar 3 al nibble superior, de acuerdo al algoritmo XS3
-SIGA30`	ABA			;Sumar el resultado de ambos nibbles
-	STAA BCD		;Guardar suma de nibbles en la variable de resultado
-	PULA 			;Desapilar el valor binario apilado temporalmente
-	;LDAA TEMP
-	DEC Cont_BCD		;Decrementar contador de desplazamientos
-	BNE SIGA`		;Saltar si la cantidad de desplazamientos no ha llegado a cero
-	LSLA			;Desplazar por última vez el valor binario
-	ROL BCD			;Desplazar por última vez la variable de resultado
-	RTS			;Retornar de la subrutina
-
-;******************************************************************************
-;                       	SUBRUTINA BCD_7SEG
-;******************************************************************************
-BCD_7SEG
-	loc
-	LDX #Segment		;Cargar dirección base de tabla con códigos de 7 Segmentos
-	LDAA BCD2		;Cargar valor superior de los displays
-	ANDA #$F0		;Obtener nibble superior (DSP1)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
-	MOVB A,X,DSP1		;Actualizar valor desplegado en el display DSP2
-	LDAA BCD2		;Cargar valor superior de los displays
-	ANDA #$0F		;Obtener nibble inferior (DSP2)
-	MOVB A,X,DSP2		;Actualizar valor desplegado en el display DSP2
-	LDAA BCD1		;Cargar valor inferior de los displays
-	ANDA #$F0		;Obtener nibble superior (DSP3)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
-	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
-	MOVB A,X,DSP3		;Actualizar valor desplegado en el display DSP3
-	LDAA BCD1		;Cargar valor superior de los displays
-	ANDA #$0F		;Obtener nibble inferior (DSP4)
-	MOVB A,X,DSP4		;Actualizar valor desplegado en el display DSP4
-	RTS			;Retornar de las subrutina
-
-;******************************************************************************
-;                       	TAREA PANTALLA MUX
-;******************************************************************************
-Tarea_PantallaMUX
-	LDX EstPres_PantallaMUX		;Cargar dirección de la subrutina para el próximo estado
-	JSR 0,X				;Saltar a la subrutina del próximo estado
-	RTS				;Retornar de la subrutina 
-
-;============================== TECLADO ESTADO 1 =============================
-PantallaMUX_Est1
-	TST Timer_Digito		;Verificar si el timer de dígito ha llegado a cero
-	loc 
-	BNE FIN`			;Saltar si el timer ya llegó a cero
-	MOVB #tTimerDigito,Timer_Digito	;Recargar timer de digito
-	LDAA Cont_Dig			;Cargar contador de digito
-	CMPA #1				;Verificar si se va desplegar el dígito 1
-	BEQ DIGITO1			;Saltar si se va desplegar el digito 1
-	CMPA #2				;Verificar si se va desplegar el dígito 2
-	BEQ DIGITO2			;Saltar si se va desplegar el digito 2
-	CMPA #3				;Verificar si se va desplegar el dígito 3
-	BEQ DIGITO3			;Saltar si se va desplegar el digito 3
-	CMPA #4				;Verificar si se va desplegar el dígito 4
-	BEQ DIGITO4			;Saltar si se va desplegar el digito 4
-	BRA DIGITO5			;Como caso por defecto, se va desplegar el digito 5 (LEDs)
-DIGITO1	BCLR PTP,DIG1			;Habilitar primer dígito
-	MOVB DSP1,PORTB			;Desplegar valor en el primer dígito
-	BRA INCRE`			;Saltar para incrementar el contador de dígito
-DIGITO2 BCLR PTP,DIG2			;Habilitar segundo dígito
-	MOVB DSP2,PORTB			;Desplegar valor en el segundo dígito
-	BRA INCRE`			;Saltar para incrementar el contador de dígito
-DIGITO3	BCLR PTP,DIG3			;Habilitar tercer dígito
-	MOVB DSP3,PORTB			;Desplegar valor del tercer dígito
-	BRA INCRE`			;Saltar para incrementar el contador de dígito
-DIGITO4 BCLR PTP,DIG4			;Habilitar cuarto dígito
-	MOVB DSP4,PORTB			;Desplegar valor del cuarto dígito
-	BRA INCRE`			;Saltar para incrementar el contador de dígito
-DIGITO5	BCLR PTJ,$02			;Habilitar quinto dígito (ánodo de los LEDs)
-	MOVB LEDS,PORTB			;Desplegar valor del quinto dígito
-	MOVB #1,Cont_Dig		;Reiniciar el contador de dígito
-	BRA TICKS`			;Saltar para iniciar el contador de ticks
-INCRE`	INC Cont_Dig			;Incrementar el contador de dígito
-TICKS`	MOVB #MaxCountTicks,Counter_Ticks		;Iniciar el contador de ticks
-	MOVW #PantallaMUX_Est2,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 2
-FIN`	RTS				;Retornar de la subrutina
-
-;============================== TECLADO ESTADO 2 =============================
-PantallaMUX_Est2
-	LDAA Counter_Ticks		;Cargar contador de ticks
-	CMPA Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
-	loc
-	BNE FIN` 			;Saltar si ya se llegó al valor de brillo
-	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
-	BSET PTJ,$02			;Deshabilitar LEDs
-	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
-FIN`	RTS						;Retornar de la subrutina
-
-;******************************************************************************
-;                      		TAREA LED TESTIGO
-;******************************************************************************
-Tarea_Led_Testigo
-	LDX Est_Pres_LDTst			;Cargar prox estado para la ME LDTst
-	JSR 0,X					;Saltar al prox estado
-	RTS					;Retornar de la subrutina
-
-;============================== LED TESTIGO ESTADO 1 ==========================
-LDTst_Est1
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Green			;Apagar LED verde
-	BSET PTP,LD_Blue			;Encender LED RGB Azul
-	MOVW #LDTst_Est2,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS					;Retornar de la subrutina
-
-;============================== LED TESTIGO ESTADO 2 ==========================
-LDTst_Est2
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Blue			;Apagar LED RGB Azul
-	BSET PTP,LD_Red				;Encender LED RGB Rojo
-	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS
-;============================== LED TESTIGO ESTADO 3 ==========================
-LDTst_Est3
-	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
-	loc
-	BNE FIN`				;Saltar si el timer aun no ha llegado a cero
-	BCLR PTP,LD_Red				;Apagar LED RGB Rojo
-	BSET PTP,LD_Green			;Encender LED RGB Verde
-	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
-	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
-FIN`	RTS
-
-;******************************************************************************
-;                               TAREA LEER PB
-;******************************************************************************
-Tarea_Leer_PB
-        LDX EstPres_LeerPB1		;Cargar dirección de la subrutina asociada al estado presente
-        JSR 0,X				;Ejecutar subrutina asociada al estado presente
-        RTS				;Retornar de la subrutina
-
-;============================== LEER PB ESTADO 1 =============================
-LeerPB_Est1
-        BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
-	loc
-        BRA FIN1                    		;Salte si ya se presionó el botón
-LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
-        MOVB #tShortP,Timer_SHP        		;Cargar timer de short press
-        MOVB #tLongP,Timer_LP        		;Cargar timer de long press
-        MOVW #LeerPB_Est2,EstPres_LeerPB1    	;Actualizar el próximo estado
-FIN1	RTS                                	;Retornar de subrutina
-
-;============================== LEER PB ESTADO 2 =============================
-LeerPB_Est2
-        TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
-	loc
-        BNE FIN2                          	;Saltar si el timer no ha llegado a cero
-        BRCLR PortPB,MaskPB,N_FALSO             ;Salte si no se detectó una falsa lectura
-        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Como la lectura es inválido, vuelva al estado inicial
-        BRA FIN2	                      	;Saltar para terminar la subrutina
-N_FALSO	MOVW #LeerPB_Est3,EstPres_LeerPB1    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
-FIN2	RTS                                    	;Fin de la subrutina
-
-;============================== LEER PB ESTADO 3 =============================
-LeerPB_Est3
-        TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
-	loc
-        BNE FIN3                          	;Saltar si el timer ya llegó a cero
-        BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP             	;Habilitar bandera de short press 
-        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial, ya que fue short press
-        BRA FIN3                        	;Saltar para terminar la subrutina
-NO_SHP  MOVW #LeerPB_Est4,EstPres_LeerPB1    	;Cambiar al estado 4, para verificar si es long press
-FIN3	RTS					;Retornar de la subrutina
-
-;============================== LEER PB ESTADO 4 =============================
-LeerPB_Est4
-        TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
-        BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
-	loc
-        BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,LongP             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
-        BRA I_EST                             	;Saltar para transicionar al estado inicial
-T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP            	;Habilitar bandera de long press, ya que se verificó que sí es
-I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
-FIN4	RTS					;Retornar de la subrutina
-       
 
 ;******************************************************************************
 ;                       SUBRUTINA DE ATENCION A OUTPUT COMPARE
