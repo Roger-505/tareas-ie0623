@@ -239,6 +239,9 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
         CLR Timer_Reb_PB			;Limpiar timer para suprimir rebotes en los PB
 
 	;Inicializar variables en Tarea_TCM
+	MOVW #TCM_Est1,Est_Pres_TCM		;Cargar estado inicial para la ME TCM
+	CLR Timer_SegundosTCM			;Limpiar timer para el conteo de segundos TCM
+	CLR MinutosTCM				;Limpiar timer para el conteo de minutos TCM
 
 	;Inicializar variables utilizadas en Tarea_Conversión y Tarea_PantallaMUX
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Cargar estado inicial para la ME PantallaMUX
@@ -395,6 +398,14 @@ FIN4	RTS					;Retornar de la subrutina
 Tarea_TCM
 	LDX Est_Pres_TCM		;Cargar dirección de la subrutina para el estado presente
 	;JSR 0,X			;Saltar a la subrutina del estado presente
+	RTS				;Retornar de la subrutina
+
+;================================= TCM ESTADO 1 ===============================
+TCM_Est1
+	RTS				;Retornar de la subrutina
+
+;================================= TCM ESTADO 2 ===============================
+TCM_Est2
 	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
