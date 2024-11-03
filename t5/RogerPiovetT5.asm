@@ -457,7 +457,28 @@ SIGA30`	ABA			;Sumar el resultado de ambos nibbles
 ;******************************************************************************
 BCD_7SEG
 	loc
-	RTS				;Retornar de las subrutina
+	LDX #Segment		;Cargar dirección base de tabla con códigos de 7 Segmentos
+	LDAA BCD2		;Cargar valor superior de los displays
+	ANDA #$F0		;Obtener nibble superior (DSP1)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
+	MOVB A,X,DSP1		;Actualizar valor desplegado en el display DSP2
+	LDAA BCD2		;Cargar valor superior de los displays
+	ANDA #$0F		;Obtener nibble inferior (DSP2)
+	MOVB A,X,DSP2		;Actualizar valor desplegado en el display DSP2
+	LDAA BCD1		;Cargar valor inferior de los displays
+	ANDA #$F0		;Obtener nibble superior (DSP3)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/2)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/4)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/8)
+	LSRA			;Dividir valor entre dos para que quede justificado a la derecha (/16)
+	MOVB A,X,DSP3		;Actualizar valor desplegado en el display DSP3
+	LDAA BCD1		;Cargar valor superior de los displays
+	ANDA #$0F		;Obtener nibble inferior (DSP4)
+	MOVB A,X,DSP4		;Actualizar valor desplegado en el display DSP4
+	RTS			;Retornar de las subrutina
 
 ;******************************************************************************
 ;                       	TAREA PANTALLA MUX
