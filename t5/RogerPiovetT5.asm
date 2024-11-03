@@ -182,12 +182,12 @@ Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1mS
 Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
-Timer_Reb_PB  		ds    	1	;Timer para manejar los rebotes de los botones pulsadores
+Timer_Reb_PB1  		ds    	1	;Timer para manejar los rebotes de los botones pulsadores
 Timer_RebTCL		ds	1	;Timer para manejar los rebotes de los botones del teclado
 Fin_Base1mS     	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base10mS
-Timer_SHP 		ds   	1	;Timer para identificar un short press
+Timer_SHP1 		ds   	1	;Timer para identificar un short press
 Fin_Base10ms    	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base100mS
@@ -195,7 +195,7 @@ Timer_LED_Testigo	ds	1	;Timer para parpadeo de led testigo
 Fin_Base100mS   	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1S
-Timer_LP            	ds    	1	;Timer para identificar un long press	
+Timer_LP1            	ds    	1	;Timer para identificar un long press	
 Timer_SegundosTCM	ds	1	;Timer para despliegue de mensajes en LCD en Tarea_TCM
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
@@ -241,10 +241,10 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
         CLR Timer_LED_Testigo 			;Limpiar timer para el LED testigo RGB
 
 	;Inicializar variables utilizadas en Tarea_Leer_PB
-        MOVW #LeerPB_Est1,EstPres_LeerPB1	;Carga estado inicial para la ME Leer_PB
-        CLR Timer_SHP				;Limpiar timer para detectar short press
-        CLR Timer_LP				;Limpiar timer para detectar long press
-        CLR Timer_Reb_PB			;Limpiar timer para suprimir rebotes en los PB
+        MOVW #LeerPB1_Est1,EstPres_LeerPB1	;Carga estado inicial para la ME Leer_PB
+        CLR Timer_SHP1				;Limpiar timer para detectar short press
+        CLR Timer_LP1				;Limpiar timer para detectar long press
+        CLR Timer_Reb_PB1			;Limpiar timer para suprimir rebotes en los PB
 
 	;Inicializar variables en Tarea_TCM
 	MOVW #TCM_Est1,Est_Pres_TCM		;Cargar estado inicial para la ME TCM
@@ -293,12 +293,13 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	STD TC4					;Guardar el nuevo valor de comparación
 	MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
 
+	BCLR DDRH,$FF
 	;Inicialización para uso de interrupciones y subrutinas
         LDS #INIT_PILA				;Inicializa la pila
         CLI					;Habilitar interrupciones no mascarables
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
-        JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
+        JSR Tarea_Leer_PB1			;Despacha Tarea_Leer_PB
 	JSR Tarea_TCM				;Despacha Tarea_TCM
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
@@ -347,70 +348,72 @@ LDTst_Est3
 FIN`	RTS
 
 ;******************************************************************************
-;                               TAREA LEER PB
+;                               TAREA LEER PB1
 ;******************************************************************************
-Tarea_Leer_PB
-        LDX EstPres_LeerPB1		;Cargar dirección de la subrutina asociada al estado presente
-        JSR 0,X				;Ejecutar subrutina asociada al estado presente
-        RTS				;Retornar de la subrutina
+Tarea_Leer_PB1
+        LDX EstPres_LeerPB1	;Cargar dirección de la subrutina asociada al estado presente en Est_Press_Leer_PB
+        JSR 0,X			;Saltar a subrutina asociada al estado presente
+	RTS			;Fin de la subrutina
 
-;============================== LEER PB ESTADO 1 =============================
-LeerPB_Est1
-        BRCLR PortPB,$08,LD_PB			;Salte si no se ha presionado el botón
+;============================== LEER PB1 ESTADO 1 =============================
+LeerPB1_Est1
+        BRCLR PortPB,$08,LD_PB        		;Salte si no se ha presionado el botón
 	loc
-        BRA FIN1                    		;Salte si ya se presionó el botón
-LD_PB   MOVB #tSupRebPB1,Timer_Reb_PB        	;Cargar timer de rebotes
-        MOVB #tShortP1,Timer_SHP        	;Cargar timer de short press
-        MOVB #tLongP1,Timer_LP        		;Cargar timer de long press
-        MOVW #LeerPB_Est2,EstPres_LeerPB1    	;Actualizar el próximo estado
-FIN1	RTS                                	;Retornar de subrutina
+        BRA FIN` 	                   	;Salte si ya se presionó el botón
+LD_PB   MOVB #tSupRebPB1,Timer_Reb_PB1        	;Cargar timer de rebotes
+        MOVB #tShortP1,Timer_SHP1        	;Cargar timer de short press
+        MOVB #tLongP1,Timer_LP1        		;Cargar timer de long press
+        MOVW #LeerPB1_Est2,EstPres_LeerPB1 	;Actualizar el próximo estado
+FIN`	RTS                             	;Retornar de subrutina
 
 ;============================== LEER PB ESTADO 2 =============================
-LeerPB_Est2
-        TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
+LeerPB1_Est2
+        TST Timer_Reb_PB1                	;Verificar si el timer de rebotes ya llegó a cero
 	loc
-        BNE FIN2                          	;Saltar si el timer no ha llegado a cero
-        BRCLR PortPB,$80,N_FALSO             	;Salte si no se detectó una falsa lectura
-        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Como la lectura es inválido, vuelva al estado inicial
-        BRA FIN2	                      	;Saltar para terminar la subrutina
-N_FALSO	MOVW #LeerPB_Est3,EstPres_LeerPB1    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
-FIN2	RTS                                    	;Fin de la subrutina
+        BNE FIN`                 		;Saltar si el timer no ha llegado a cero
+        BRCLR PortPB,$08,FALSO              	;Salte si se detectó una falsa lectura
+        MOVW #LeerPB1_Est1,EstPres_LeerPB1   	;Como la lectura es válida, saltar al estado para verificar si es un short press
+        BRA FIN`	                      	;Saltar para terminar la subrutina
+FALSO  	MOVW #LeerPB1_Est3,EstPres_LeerPB1   	;Como la lectura no es válida, saltar al estado inicial
+FIN`	RTS                                  	;Fin de la subrutina
 
 ;============================== LEER PB ESTADO 3 =============================
-LeerPB_Est3
-        TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
+LeerPB1_Est3
+        TST Timer_SHP1               		;Verificar si el timer de short press llegó a cero
 	loc
-        BNE FIN3                          	;Saltar si el timer ya llegó a cero
-        BRCLR PortPB,$80,NO_SHP             	;Saltar si el botón sigue presionado
-        BSET Banderas_1,ShortP1             	;Habilitar bandera de short press 
-        MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial, ya que fue short press
-        BRA FIN3                        	;Saltar para terminar la subrutina
-NO_SHP  MOVW #LeerPB_Est4,EstPres_LeerPB1    	;Cambiar al estado 4, para verificar si es long press
-FIN3	RTS					;Retornar de la subrutina
+        BNE FIN`	                       	;Saltar si el timer ya llegó a cero
+        BRCLR PortPB,$08,NO_SHP              	;Saltar si el botón sigue presionado
+        BSET Banderas_1,ShortP1              	;Habilitar bandera de short press 
+        MOVW #LeerPB1_Est1,EstPres_LeerPB1   	;Cambiar al estado inicial, ya que fue short press
+        BRA FIN` 	                        ;Saltar para terminar la subrutina
+NO_SHP  MOVW #LeerPB1_Est4,EstPres_LeerPB1   	;Cambiar al estado 4, para verificar si es long press
+FIN`	RTS					;Fin de la subrutina
 
 ;============================== LEER PB ESTADO 4 =============================
-LeerPB_Est4
-        TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
-        BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
+LeerPB1_Est4
+        TST Timer_LP1          			;Verificar si el timer de long press llegó a cero
+        BNE T_NO_Z                 		;Saltar si el timer no ha llegado a cero
 	loc
-        BRCLR PortPB,$80,FIN4          		;Saltar si el botón sigue presionado
-        BSET Banderas_1,LongP1             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
-        BRA I_EST                             	;Saltar para transicionar al estado inicial
-T_NO_Z  BRCLR PortPB,$80,FIN4          		;Saltar si el botón sigue presionado
-        BSET Banderas_1,ShortP1            	;Habilitar bandera de long press, ya que se verificó que sí es
-I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
-FIN4	RTS					;Retornar de la subrutina
-       
+        BRCLR PortPB,$08,FIN` 			;Saltar si el botón sigue presionado
+        BSET Banderas_1,LongP1  		;El botón se presionó antes del timer acabara. Es short press, habilitar bandera
+        BRA I_EST                     		;Saltar para transicionar al estado inicial
+T_NO_Z  BRCLR PortPB,$08,FIN` 			;Saltar si el botón sigue presionado
+        BSET Banderas_1,ShortP1   		;Habilitar bandera de long press, ya que se verificó que sí es
+I_EST   MOVW #LeerPB1_Est1,EstPres_LeerPB1  	;Cambiar al estado inicial
+FIN`	RTS					;Fin de la subrutina
+
 ;******************************************************************************
 ;                       	TAREA TCM
 ;******************************************************************************
 Tarea_TCM
 	LDX Est_Pres_TCM		;Cargar dirección de la subrutina para el estado presente
-	;JSR 0,X			;Saltar a la subrutina del estado presente
+	loc
+	JSR 0,X				;Saltar a la subrutina del estado presente
 	RTS				;Retornar de la subrutina
 
 ;================================= TCM ESTADO 1 ===============================
 TCM_Est1
+	
 	RTS				;Retornar de la subrutina
 
 ;================================= TCM ESTADO 2 ===============================
