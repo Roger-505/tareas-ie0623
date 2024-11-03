@@ -49,6 +49,8 @@ LD_Blue		EQU	$20	;Máscara para encender LED azul del LED RGB en PTP
 
 ; --- Aquí se colocan los valores generales del programa ---
 Carga_TC4	EQU	480	;Valor de carga a TC4 para configurar OC a 50kHz para Maquina_Tiempos
+InicioLD	EQU	$55	;Valor de LEDs para desplegar LEDs pares
+TemporalLD	EQU	$AA	;Valor de LEDs para desplegar LEDs impares
 
 ;--- Aqui se colocan los valores de carga para los timers baseT  ----
 tTimer1mS    	EQU	1	;Base de tiempo de 1 mS (1 ms x 1)
