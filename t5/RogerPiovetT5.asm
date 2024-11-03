@@ -12,7 +12,6 @@
 ;******************************************************************************
 ;                                ENCABEZADO
 ;******************************************************************************
-
 ; --- Aquí se colocan los valores asociados a Tarea_Teclado --- 
 tSuprRebTCL	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para los botones del teclado
 
@@ -105,6 +104,7 @@ BCD		DS	1
 Cont_BCD	DS	1
 BCD1		DS	1
 BCD2		DS	1
+TEMP 		DS	1
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_LCD --- 
 	ORG INIT_LCD
@@ -154,14 +154,13 @@ Teclas		DB	$01	;(PA0 = 0) && (PA4 = 0) -> '1'
 ;===============================================================================
 ;                              	 MENSAJES
 ;===============================================================================
+	ORG INIT_MSGS
 MSG	FCC "Microprocesadores IE0623"
 
 ;===============================================================================
 ;                              TABLA DE TIMERS
 ;===============================================================================
     	Org INIT_T_TIMERS
-CONT_OC			ds	1	;Contador para llamadas a la ISR
-Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 Tabla_Timers_BaseT		
 Timer1mS 		ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
 Timer10mS		ds 	2       ;Timer para generar la base de tiempo 10 mS
@@ -170,9 +169,9 @@ Timer1S			ds	2       ;Timer para generar la base de tiempo de 1 Seg.
 Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1mS
+Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
 Timer_Reb_PB  		ds    	1	;Timer para manejar los rebotes de los botones pulsadores
 Timer_RebTCL		ds	1	;Timer para manejar los rebotes de los botones del teclado
-Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
 Fin_Base1mS     	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base10mS
@@ -187,6 +186,8 @@ Tabla_Timers_Base1S
 Timer_LP            	ds    	1	;Timer para identificar un long press	
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
+CONT_OC			ds	1	;Contador para llamadas a la ISR
+Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 ;******************************************************************************
 ;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
 ;******************************************************************************
@@ -224,16 +225,17 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	
 	;Inicializar variables utilizadas en Tarea_PantallaMUX
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Cargar estado inicial para la ME PantallaMUX
-	MOVB #1,Cont_Dig				;Cargar primer display por ser desplegado
-	MOVB #40,Brillo					;Definir brillo de los displays
-	CLR Timer_Digito				;Limpiar timer para multiplexar displays
-	CLR Counter_Ticks				;Limpiar timer para definir brillo de los displays
-	MOVB #$3F,DSP1
-	MOVB #$06,DSP2
-	MOVB #$5B,DSP3
-	MOVB #$4F,DSP4
-	MOVB #$AA,LEDS
-	MOVB #$0F,BIN1
+	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
+	MOVB #80,Brillo				;Definir brillo de los displays
+	CLR Timer_Digito			;Limpiar timer para desplegar dígitos en los displays
+	CLR Counter_Ticks			;Limpiar timer para definir brillo de los displays
+	MOVB #$3F,DSP1				;Desplegar '0' en el display 1
+	MOVB #$06,DSP2				;Desplegar '1' en el display 2
+	MOVB #$5B,DSP3				;Desplegar '2' en el display 3
+	MOVB #$4F,DSP4				;Desplegar '3' en el display 4
+	MOVB #$AA,LEDS				;Encender LEDs impares en PORTB
+	MOVB #$0F,BIN1				;Desplegar '15' en los displays 1 y 2
+	MOVB #$0F,BIN2				;Desplegar '15' en los displays 3 y 4
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
@@ -245,23 +247,23 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar estado inicial para parpadear el LED azul
 
 	;Inicializar timers baseT
-        Movw #tTimer1mS,Timer1mS
-        Movw #tTimer10mS,Timer10mS
-        Movw #tTimer100mS,Timer100mS
-        Movw #tTimer1S,Timer1S
+        Movw #tTimer1mS,Timer1mS		;Inicializar timer para la base de tiempo de 1ms
+        Movw #tTimer10mS,Timer10mS		;Inicializar timer para la base de tiempo de 10ms
+        Movw #tTimer100mS,Timer100mS		;Inicializar timer para la base de tiempo de 100ms
+        Movw #tTimer1S,Timer1S			;Inicializar timer para la base de tiempo de 1000ms (1S)
 
 	;Limpiar los timers por usar
-        Movb #tTimerLDTst,Timer_LED_Testigo 
-        CLR Timer_SHP
-        CLR Timer_LP			
-        CLR Timer_Reb_PB
-	CLR Timer_RebTCL
+        CLR Timer_LED_Testigo 			;Limpiar timer para el LED testigo RGB
+        CLR Timer_SHP				;Limpiar timer para detectar short press
+        CLR Timer_LP				;Limpiar timer para detectar long press
+        CLR Timer_Reb_PB			;Limpiar timer para suprimir rebotes en los PB
+	CLR Timer_RebTCL			;Limpiar timer para suprimir rebotes en el TCL
 	
 	; Inicialización para el uso de la salida por comparación
-	LDD TCNT		;Cargar valor actual del timer
-	ADDD #480		;Cargar el valor inicial de comparación para el canal 4
-	STD TC4			;Guardar el nuevo valor de comparación
-	MOVB #50,CONT_OC	;Cargar contador de llamadas a ISR
+	LDD TCNT				;Cargar valor actual del timer
+	ADDD #480				;Cargar el valor inicial de comparación para el canal 4
+	STD TC4					;Guardar el nuevo valor de comparación
+	MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
 
 	;Inicialización para uso de interrupciones y subrutinas
         LDS #INIT_PILA				;Inicializa la pila
@@ -271,7 +273,7 @@ Despachador_Tareas
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
-        JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
+        ;JSR Tarea_Leer_PB			;Despacha Tarea_Leer_PB
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
 
@@ -407,25 +409,26 @@ FIN`	RTS				;Retornar de la subrutina
 ;                       	TAREA CONVERSIÓN
 ;******************************************************************************
 Tarea_Conversion
-	LDAA BIN1			;Cargar parte alta de valor binario a convertir
-	JSR BIN_BCD_MUXP		;Saltar a subrutina para convertir parte baja de valor BIN a BCD
-	MOVB BCD,BCD1			;Guardar resultado de la conversión a BCD en BCD1
-	LDAA BIN2			;Cargar parte baja del valor binario a convertir
-	JSR BIN_BCD_MUXP		;Saltar a subrutina para convertir parte alta del valor BIN a BCD
-	MOVB BCD,BCD2			;Guardar resultado de la conversión a BCD en BCD2
-	JSR BCD_7SEG			;Saltar a subrutina para convertir valor BCD a 7Seg
-	RTS 				;Retornar de la subrutina
+	LDAA BIN1		;Cargar parte alta de valor binario a convertir
+	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte baja de valor BIN a BCD
+	MOVB BCD,BCD1		;Guardar resultado de la conversión a BCD en BCD1
+	LDAA BIN2		;Cargar parte baja del valor binario a convertir
+	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte alta del valor BIN a BCD
+	MOVB BCD,BCD2		;Guardar resultado de la conversión a BCD en BCD2
+	JSR BCD_7SEG		;Saltar a subrutina para convertir valor BCD a 7Seg
+	RTS 			;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       	SUBRUTINA BIN_BCD_MUXP
 ;******************************************************************************
 BIN_BCD_MUXP
-	MOVB #7,Cont_BCD	;Cargar contador de desplazamientos menos uno
+	MOVB #$07,Cont_BCD	;Cargar contador de desplazamientos menos uno
 	CLR BCD			;Limpiar variable de resultado
 	loc
 SIGA`	LSLA			;Desplazar valor binario, de acuerdo al algoritmo XS3	
 	ROL BCD			;Rotar variable de resultado, de acuerdo al algoritmo XS3
 	PSHA			;Apilar temporalmente el valor binario
+	;STAA TEMP
 	LDAA BCD		;Cargar variable de resultado hasta el momento
 	ANDA #$0F		;Obtener nibble inferior de la variable de resultado
 	CMPA #5			;Verificar si el nibble es mayor o igual que 5
@@ -442,16 +445,20 @@ SUME30`	ADDA #$30		;Sumar 3 al nibble superior, de acuerdo al algoritmo XS3
 SIGA30`	ABA			;Sumar el resultado de ambos nibbles
 	STAA BCD		;Guardar suma de nibbles en la variable de resultado
 	PULA 			;Desapilar el valor binario apilado temporalmente
+	;LDAA TEMP
 	DEC Cont_BCD		;Decrementar contador de desplazamientos
 	BNE SIGA`		;Saltar si la cantidad de desplazamientos no ha llegado a cero
-	LSLA			;Despalzar por última vez el valor binario
-	ROL BCD			;Rotar por última vez la variable de resultado
+	LSLA			;Desplazar por última vez el valor binario
+	ROL BCD			;Desplazar por última vez la variable de resultado
 	RTS			;Retornar de la subrutina
+
 ;******************************************************************************
 ;                       	SUBRUTINA BCD_7SEG
 ;******************************************************************************
 BCD_7SEG
+	loc
 	RTS				;Retornar de las subrutina
+
 ;******************************************************************************
 ;                       	TAREA PANTALLA MUX
 ;******************************************************************************
@@ -506,7 +513,7 @@ PantallaMUX_Est2
 	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
 	BSET PTJ,$02			;Deshabilitar LEDs
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
-FIN`	RTS				;Retornar de la subrutina
+FIN`	RTS						;Retornar de la subrutina
 
 ;******************************************************************************
 ;                      		TAREA LED TESTIGO
@@ -615,15 +622,16 @@ SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
-;                       SUBRUTINA DE ATENCION A RTI
+;                       SUBRUTINA DE ATENCION A OUTPUT COMPARE
 ;******************************************************************************
 Maquina_Tiempos:
-	LDAA Counter_Ticks		;Cargar contador de ticks
+	LDAA Counter_Ticks		;Cargar contador de ticks para el manejo del brillo
+	CMPA Brillo			;Verificar si ya se llegó al valor de Brillo deseado
 	loc
-	BEQ SIGA`			;Saltar si el contador de ticks ya llegó a cero
-	DEC Counter_Ticks		;Decrementar contador de ticks
+	BEQ SIGA`			;Saltar si ya se llegó al valor de Brillo deseado
+	DEC Counter_Ticks		;Decrementar contador de Ticks
 SIGA` 	DEC CONT_OC			;Decrementar contador de llamadas a la ISR
-	BNE NO_DEC			;Saltar si el contador aun no es cero
+	BNE NODECRE			;Saltar si el contador aun no es cero
 	MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
         LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
         JSR Decre_Timers_BaseT          ;Llamar a subrutina para decrementar timers
@@ -651,9 +659,8 @@ NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S llegÃ³ a 0
         MOVW #tTimer1S,Timer1S          ;Reiniciar timer de 1S
         LDX #Tabla_Timers_Base1S        ;Cargar direcciÃ³n base de tabla base 1S
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
-NOCERO` BSET CRGFLG,RTIF                ;Deshabilitar solicitud de interrupciÃ³n
-        loc
-NO_DEC	LDD TCNT			;Cargar valor actual del timer
+NOCERO` loc
+NODECRE	LDD TCNT			;Cargar valor actual del timer
 	ADDD #480			;Cargar el valor inicial de comparación para el canal 4
 	STD TC4				;Guardar el nuevo valor de comparación
         RTI				;Retornar de la ISR
