@@ -25,21 +25,25 @@ DIG4		EQU	$08	;Habilitación en PTP del display 4
 
 ; --- Aquí se colocan los valores asociados a Tarea_LCD ---
 ; --- Aquí se colocan los valores asociados a Tarea_LeerPB1 ---
+tSupRebPB1	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para el PB
+tShortP1     	EQU    	10     	;Tiempo mínimo ShortPress x 10mS
+tLongP1		EQU   	2     	;Tiempo mínimo LongPress en segundos
 PortPB		EQU	PTIH	;Puerto en donde se ubican los botones en la Dragon12+2
-MaskPB       	EQU    	$01    	;Se define el bit del PB en el puerto
-tSupRebPB	EQU    	50     	;Tiempo de supresión de rebotes x 1mS para el PB
-tShortP     	EQU    	10     	;Tiempo mínimo ShortPress x 10mS
-tLongP		EQU   	2     	;Tiempo mínimo LongPress en segundos
-RTIF      	EQU   	$80    	;RTIF = CRGFLG.7. Para habilitar/deshabilitar RTI
 
 ; --- Aquí se colocan los valores asociados a Tarea_TCM ---
 tSegundosTCM	EQU	15	;Valor de carga para el timer de segundos en Tarea_TCM
 tMinutosTCM	EQU	1	;Valor de carga para el timer de minutos en Tarea_TCM
 
 ; --- Aquí se colocan los valores utilizado por las variables bandera del programa ---
-ShortP		EQU	$01	;ShortP  = Banderas_PB.0
-LongP		EQU    	$02	;LongP   = Banderas_PB.1
-ArrayOK		EQU	$04	;ArrayOK = Banderas_PB.2
+ShortP0		EQU	$01	;ShortP0  = Banderas_1.0
+LongP0		EQU	$02	;LongP0   = Banderas_1.1
+ShortP1		EQU	$04	;ShortP1  = Banderas_1.2
+LongP1		EQU	$08	;LongP1   = Banderas_1.3
+Array_OK	EQU	$10	;Array_OK = Banderas_1.4
+RS		EQU	$01	;RS          = Banderas_2.0
+LCD_Ok		EQU	$02	;LCD_Ok      = Banderas_2.1
+FinSendLCD	EQU	$04	;FinSendLCD  = Banderas_2.2
+Second_Line	EQU	$08	;Second_Line = Banderas_2.3
 
 ; --- Aquí se colocan los valores asociados a Tarea_Led_Testigo---
 tTimerLDTst    	EQU	5    	;Tiempo de parpadeo de LED testigo en segundos
@@ -125,7 +129,8 @@ MinutosTCM	DS	1	;Timer para el conteo de minutos y despliegue de MSGs en LCD
 
 ; --- Aquí se colocan las variables bandera utilizadas en el programa ---
 	ORG INIT_BANDERAS
-Banderas         	DS	1	;Banderas = X:X:X:X:X:Array_OK:LongP:ShortP
+Banderas_1         	DS	1	;Banderas_1 = X:X:X:Array_OK:LongP1:ShortP1:LongP0:ShortP0
+Banderas_2		DS	1	;Banderas_2 = X:X:X:X:Second_Line:FinSendLCD:LCD_Ok:RS
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Led_Testigo ---
 	ORG INIT_LD_TST
@@ -263,7 +268,8 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	;Inicializar variables en Tarea_LCD
 
 	;Inicializar banderas
-        CLR Banderas				;Limpia las banderas
+        CLR Banderas_1				;Limpia Banderas_1
+        CLR Banderas_2				;Limpia Banderas_2
 
 	;Inicializar variables utilizadas en Tarea_Teclado
 	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
@@ -350,12 +356,12 @@ Tarea_Leer_PB
 
 ;============================== LEER PB ESTADO 1 =============================
 LeerPB_Est1
-        BRCLR PortPB,MaskPB,LD_PB		;Salte si no se ha presionado el botón
+        BRCLR PortPB,$08,LD_PB			;Salte si no se ha presionado el botón
 	loc
         BRA FIN1                    		;Salte si ya se presionó el botón
-LD_PB   MOVB #tSupRebPB,Timer_Reb_PB        	;Cargar timer de rebotes
-        MOVB #tShortP,Timer_SHP        		;Cargar timer de short press
-        MOVB #tLongP,Timer_LP        		;Cargar timer de long press
+LD_PB   MOVB #tSupRebPB1,Timer_Reb_PB        	;Cargar timer de rebotes
+        MOVB #tShortP1,Timer_SHP        	;Cargar timer de short press
+        MOVB #tLongP1,Timer_LP        		;Cargar timer de long press
         MOVW #LeerPB_Est2,EstPres_LeerPB1    	;Actualizar el próximo estado
 FIN1	RTS                                	;Retornar de subrutina
 
@@ -364,7 +370,7 @@ LeerPB_Est2
         TST Timer_Reb_PB                 	;Verificar si el timer de rebotes ya llegó a cero
 	loc
         BNE FIN2                          	;Saltar si el timer no ha llegado a cero
-        BRCLR PortPB,MaskPB,N_FALSO             ;Salte si no se detectó una falsa lectura
+        BRCLR PortPB,$80,N_FALSO             	;Salte si no se detectó una falsa lectura
         MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Como la lectura es inválido, vuelva al estado inicial
         BRA FIN2	                      	;Saltar para terminar la subrutina
 N_FALSO	MOVW #LeerPB_Est3,EstPres_LeerPB1    	;Como la lectura es válida, pase al estado 3 para verificar si es SHP
@@ -375,8 +381,8 @@ LeerPB_Est3
         TST Timer_SHP                      	;Verificar si el timer de short press llegó a cero
 	loc
         BNE FIN3                          	;Saltar si el timer ya llegó a cero
-        BRCLR PortPB,MaskPB,NO_SHP             	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP             	;Habilitar bandera de short press 
+        BRCLR PortPB,$80,NO_SHP             	;Saltar si el botón sigue presionado
+        BSET Banderas_1,ShortP1             	;Habilitar bandera de short press 
         MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial, ya que fue short press
         BRA FIN3                        	;Saltar para terminar la subrutina
 NO_SHP  MOVW #LeerPB_Est4,EstPres_LeerPB1    	;Cambiar al estado 4, para verificar si es long press
@@ -387,11 +393,11 @@ LeerPB_Est4
         TST Timer_LP                    	;Verificar si el timer de long press llegó a cero
         BNE T_NO_Z                             	;Saltar si el timer no ha llegado a cero
 	loc
-        BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,LongP             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
+        BRCLR PortPB,$80,FIN4          		;Saltar si el botón sigue presionado
+        BSET Banderas_1,LongP1             	;El botón se presionó antes que el timer acabara. Habilitar bandera SHP
         BRA I_EST                             	;Saltar para transicionar al estado inicial
-T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
-        BSET Banderas,ShortP            	;Habilitar bandera de long press, ya que se verificó que sí es
+T_NO_Z  BRCLR PortPB,$80,FIN4          		;Saltar si el botón sigue presionado
+        BSET Banderas_1,ShortP1            	;Habilitar bandera de long press, ya que se verificó que sí es
 I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
 FIN4	RTS					;Retornar de la subrutina
        
@@ -619,7 +625,7 @@ BOR`	DECA			;Decrementar offset
 	STAA CONT_TCL		;Actualizar offset en memoria
 	BRA FIN`		;Saltar para finalizar el estado
 ENT`	CLR CONT_TCL		;Borrar offset para indexar Num_Array
-	BSET Banderas,ArrayOK	;Indicar que se ha generado un arreglo de teclas válido
+	BSET Banderas_1,Array_OK;Indicar que se ha generado un arreglo de teclas válido
 	BRA FIN`		;Saltar para finalizar el estado
 FIN`	MOVB #$FF,Tecla_IN			;Borrar valor de tecla de entrada
 EST1`	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cambiar al estado 1 para procesar otra tecla
@@ -655,15 +661,15 @@ FIN`	RTS				;Retornar de la subrutina
 ;                               TAREA BORRAR_TCL
 ;******************************************************************************
 Tarea_Borrar_TCL
-        BRSET Banderas,ShortP,ON 	;Saltar si hubo un short press
-        BRSET Banderas,LongP,OFF	;Saltar si hubo un long press
+        BRSET Banderas_1,ShortP0,ON 	;Saltar si hubo un short press
+        BRSET Banderas_1,LongP0,OFF	;Saltar si hubo un long press
 	loc
         BRA FIN`			;Saltar para finalizar la subrutina
-ON      BCLR Banderas,ShortP   		;Borrar la bandera de short press
+ON      BCLR Banderas_1,ShortP0   	;Borrar la bandera de short press
 	BSET PORTB,$01          	;Encender el LED conectado a PB0
         BRA FIN`			;Saltar para finalizar la subrutina
-OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
-	BCLR Banderas,ArrayOK		;Borrar la bandera de secuencia de teclas válidas
+OFF     BCLR Banderas_1,LongP0		;Borrar la bandera de long press
+	BCLR Banderas_1,Array_OK	;Borrar la bandera de secuencia de teclas válidas
         BCLR PORTB,$01			;Apagar el LED conectado a PB0
 	JSR BORRAR_NUM_ARRAY		;Saltar a subrutina para borrar Num_Array
 FIN`	RTS				;Retornar de la subrutina
