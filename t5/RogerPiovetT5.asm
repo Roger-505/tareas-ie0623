@@ -406,6 +406,17 @@ OFF     BCLR Banderas,LongP		;Borrar la bandera de long press
 FIN`	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
+;                       SUBRUTINA BORRAR_NUM_ARRAY
+;******************************************************************************
+BORRAR_NUM_ARRAY
+	LDX #Num_Array			;Cargar dirección base del arreglo a borrar
+	LDAA MAX_TCL			;Cargar cantidad máxima de teclas válidas
+	loc
+SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
+	DBNE A,SIGA`			;Decrementar y saltar si no se ha barrido el arreglo completo
+	RTS				;Retornar de la subrutina
+
+;******************************************************************************
 ;                       	TAREA CONVERSIÓN
 ;******************************************************************************
 Tarea_Conversion
@@ -631,16 +642,6 @@ T_NO_Z  BRCLR PortPB,MaskPB,FIN4          	;Saltar si el botón sigue presionado
 I_EST   MOVW #LeerPB_Est1,EstPres_LeerPB1    	;Cambiar al estado inicial
 FIN4	RTS					;Retornar de la subrutina
        
-;******************************************************************************
-;                       SUBRUTINA BORRAR_NUM_ARRAY
-;******************************************************************************
-BORRAR_NUM_ARRAY
-	LDX #Num_Array			;Cargar dirección base del arreglo a borrar
-	LDAA MAX_TCL			;Cargar cantidad máxima de teclas válidas
-	loc
-SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
-	DBNE A,SIGA`			;Decrementar y saltar si no se ha barrido el arreglo completo
-	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       SUBRUTINA DE ATENCION A OUTPUT COMPARE
