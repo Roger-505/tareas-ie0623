@@ -206,38 +206,46 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 ;                     	CONFIGURACION DE HARDWARE
 ;===============================================================================
 	ORG INIT_PROG
+	;Configuración de hardware para displays, LED Testigo RGB, y LEDs en PORTB
 	BSET DDRP,$7F		;Definir puertos para el LED Testigo RGB y EN para displays
+	BCLR PTP,$0F		;Habilitar displays de 7 segmentos
+	MOVB #$FF,DDRB		;Definir puertos para desplegar números en los displays 
         ;Bset DDRB,$81         	;Habilitacion del LED Testigo
-        Bset DDRJ,$02          	;como comprobacion del timer de 1 segundo
-        BClr PTJ,$02         	;haciendo toogle
+        Bset DDRJ,$02          	;Declarar como salida habilitador de LEDs
+        BClr PTJ,$02         	;Habilitar LEDs
+
+	;Configuración de hardware para el teclado matricial
 	MOVB #$F0,DDRA		;Parte alta de PORTA como salidas, parte baja como entradas
 	Bset PUCR,$01		;Habilitar pullups en PORTA
+
+	;Configuración de hardware para el módulo de Timer Output Compare
 	MOVB #480,TC4		;Cargar timer de comparación para Output Compare
 	BSET TSCR1,$90		;Habilitar módulo TIMER
 	BCLR TSCR2,$07		;Definir preescalador PRS = 1
 	BSET TIOS,$10		;Habilitar salida por comparación para el canal 4
 	BSET TIE,$10		;Habilitar interrupción por salida por comparación para el canal 4
-	BCLR PTP,$0F		;Habilitar displays de 7 segmentos
-	MOVB #$FF,DDRB		;Definir puertos para desplegar números en los displays 
 
 ;===============================================================================
 ;                           PROGRAMA PRINCIPAL
 ;===============================================================================
-	;Inicializar variables utilizadas en Tarea_Teclado
-	MOVB #$FF,Tecla				;Inicializar variable para almacenar tecla presionada
-	MOVB #$FF,Tecla_IN			;Inicializar variable para almacenar tecla presionada
-	CLR CONT_TCL				;Inicializar offset para agregar teclas a Num_Array
-	CLR Patron				;Inicilizar máscara para leer las teclas de PORTA
-	MOVB #$05,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
-	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
-	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
-	
-	;Inicializar variables utilizadas en Tarea_PantallaMUX
+	;Inicializar variables utilizadas en Tarea_Led_Testigo
+	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar estado inicial para parpadear el LED azul
+        CLR Timer_LED_Testigo 			;Limpiar timer para el LED testigo RGB
+
+	;Inicializar variables utilizadas en Tarea_Leer_PB
+        MOVW #LeerPB_Est1,EstPres_LeerPB1	;Carga estado inicial para la ME Leer_PB
+        CLR Timer_SHP				;Limpiar timer para detectar short press
+        CLR Timer_LP				;Limpiar timer para detectar long press
+        CLR Timer_Reb_PB			;Limpiar timer para suprimir rebotes en los PB
+
+	;Inicializar variables en Tarea_TCM
+
+	;Inicializar variables utilizadas en Tarea_Conversión y Tarea_PantallaMUX
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Cargar estado inicial para la ME PantallaMUX
-	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
-	MOVB #80,Brillo				;Definir brillo de los displays
 	CLR Timer_Digito			;Limpiar timer para desplegar dígitos en los displays
 	CLR Counter_Ticks			;Limpiar timer para definir brillo de los displays
+	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
+	MOVB #80,Brillo				;Definir brillo de los displays
 	MOVB #$3F,DSP1				;Desplegar '0' en el display 1
 	MOVB #$06,DSP2				;Desplegar '1' en el display 2
 	MOVB #$5B,DSP3				;Desplegar '2' en el display 3
@@ -245,28 +253,27 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	MOVB #$AA,LEDS				;Encender LEDs impares en PORTB
 	MOVB #$0F,BIN1				;Desplegar '15' en los displays 1 y 2
 	MOVB #$0F,BIN2				;Desplegar '15' en los displays 3 y 4
+	
+	;Inicializar variables en Tarea_LCD
 
 	;Inicializar banderas
         CLR Banderas				;Limpia las banderas
 
-	;Inicializar variables utilizadas en Leer_PB
-        MOVW #LeerPB_Est1,EstPres_LeerPB1	;Carga estado inicial para la ME Leer_PB
-	
-	;Inicializar variables utilizadas en LDTst
-	MOVW #LDTst_Est1,Est_Pres_LDTst		;Cargar estado inicial para parpadear el LED azul
+	;Inicializar variables utilizadas en Tarea_Teclado
+	MOVW #TareaTCL_Est1,Est_Pres_TCL	;Cargar estado inicial para la ME Teclado
+	CLR CONT_TCL				;Inicializar offset para agregar teclas a Num_Array
+	CLR Patron				;Inicilizar máscara para leer las teclas de PORTA
+	CLR Timer_RebTCL			;Limpiar timer para suprimir rebotes en el TCL
+	MOVB #$FF,Tecla				;Inicializar variable para almacenar tecla presionada
+	MOVB #$FF,Tecla_IN			;Inicializar variable para almacenar tecla presionada
+	MOVB #$05,MAX_TCL			;Cargar la cantidad máxima de teclas por leer
+	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
 
 	;Inicializar timers baseT
         Movw #tTimer1mS,Timer1mS		;Inicializar timer para la base de tiempo de 1ms
         Movw #tTimer10mS,Timer10mS		;Inicializar timer para la base de tiempo de 10ms
         Movw #tTimer100mS,Timer100mS		;Inicializar timer para la base de tiempo de 100ms
         Movw #tTimer1S,Timer1S			;Inicializar timer para la base de tiempo de 1000ms (1S)
-
-	;Limpiar los timers por usar
-        CLR Timer_LED_Testigo 			;Limpiar timer para el LED testigo RGB
-        CLR Timer_SHP				;Limpiar timer para detectar short press
-        CLR Timer_LP				;Limpiar timer para detectar long press
-        CLR Timer_Reb_PB			;Limpiar timer para suprimir rebotes en los PB
-	CLR Timer_RebTCL			;Limpiar timer para suprimir rebotes en el TCL
 	
 	; Inicialización para el uso de la salida por comparación
 	LDD TCNT				;Cargar valor actual del timer
