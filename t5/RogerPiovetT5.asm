@@ -758,11 +758,11 @@ NOCERO`	LDD Timer100mS        		;Verificar si el timer de 100mS lleg√≥ a 0
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
 NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S lleg√≥ a 0
         loc
-        BNE NODECRE                     ;Saltar si el timer aun no ha llegado a 0
+        BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
         MOVW #tTimer1S,Timer1S          ;Reiniciar timer de 1S
         LDX #Tabla_Timers_Base1S        ;Cargar direcci√≥n base de tabla base 1S
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
-NODECRE	LDD TCNT			;Cargar valor actual del timer
+NOCERO`	LDD TCNT			;Cargar valor actual del timer
 	ADDD #Carga_TC4			;Cargar el valor inicial de comparaciÛn para el canal 4
 	STD TC4				;Guardar el nuevo valor de comparaciÛn
         RTI				;Retornar de la ISR
