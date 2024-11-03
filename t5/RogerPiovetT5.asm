@@ -56,7 +56,12 @@ Carga_TC4	EQU	480	;Valor de carga a TC4 para configurar OC a 50kHz para Maquina_
 InicioLD	EQU	$55	;Valor de LEDs para desplegar LEDs pares
 TemporalLD	EQU	$AA	;Valor de LEDs para desplegar LEDs impares
 
-;--- Aqui se colocan los valores de carga para los timers baseT  ----
+; --- Aquí se colocan los valores asociados a la pantalla LCD ---
+tTimer2mS	EQU	2	;Valor para un retardo de 2mS
+tTimer260uS	EQU	13	;Valor para un retardo de 260uS
+tTimer40uS	EQU	2	;Valor para un retardo de 40uS
+
+; --- Aqui se colocan los valores de carga para los timers baseT  ----
 tTimer20uS	EQU	1	;Base de tiempo de 20uS (20uS x 1)
 tTimer1mS    	EQU	50	;Base de tiempo de 1 mS (20uS x 50)
 tTimer10mS    	EQU	500	;Base de tiempo de 10 mS (20uS x 500)
@@ -183,12 +188,16 @@ Timer1S			ds	2       ;Timer para generar la base de tiempo de 1 Seg.
 Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
 
 Tabla_Timers_Base20uS
+Counter_Ticks		ds	1	;Contador de ticks para ajustar brillo de displays
+Timer260uS		ds	1	
+Timer40uS		ds	1
 Fin_Base20uS		dB	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1mS
 Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
 Timer_Reb_PB1  		ds    	1	;Timer para manejar los rebotes de los botones pulsadores
 Timer_RebTCL		ds	1	;Timer para manejar los rebotes de los botones del teclado
+Timer2mS		ds	1
 Fin_Base1mS     	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base10mS
@@ -203,11 +212,6 @@ Tabla_Timers_Base1S
 Timer_LP1            	ds    	1	;Timer para identificar un long press	
 SegundosTCM		ds	1	;Timer para despliegue de mensajes en LCD en Tarea_TCM
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
-
-;===============================================================================
-;                       CONTROL DE MÁQUINA DE TIEMPOS
-;===============================================================================
-Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 
 ;******************************************************************************
 ;                 RELOCALIZACION DE VECTOR DE INTERRUPCION
@@ -293,9 +297,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	LDD TCNT				;Cargar valor actual del timer
 	ADDD #Carga_TC4				;Cargar el valor inicial de comparación para el canal 4
 	STD TC4					;Guardar el nuevo valor de comparación
-	;MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
 
-	BCLR DDRH,$FF
 	;Inicialización para uso de interrupciones y subrutinas
         LDS #INIT_PILA				;Inicializa la pila
         CLI					;Habilitar interrupciones no mascarables
@@ -338,6 +340,7 @@ LDTst_Est2
 	MOVW #LDTst_Est3,Est_Pres_LDTst		;Cargar prox estado para parpadear el LED verde
 	MOVB #tTimerLDTst,Timer_LED_Testigo	;Recargar el timer de led testigo
 FIN`	RTS
+
 ;============================== LED TESTIGO ESTADO 3 ==========================
 LDTst_Est3
 	TST Timer_LED_Testigo			;Verificar si el timer de led testigo llegó a cero
@@ -572,7 +575,7 @@ PantallaMUX_Est2
 	LDAA Counter_Ticks		;Cargar contador de ticks
 	CMPA Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
 	loc
-	BNE FIN` 			;Saltar si ya se llegó al valor de brillo
+	BHI FIN` 			;Saltar si ya se llegó al valor de brillo
 	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
 	BSET PTJ,$02			;Deshabilitar LEDs
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
@@ -721,16 +724,7 @@ SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 ;                       SUBRUTINA DE ATENCION A OUTPUT COMPARE
 ;******************************************************************************
 Maquina_Tiempos:
-	LDAA Counter_Ticks		;Cargar contador de ticks para el manejo del brillo
-	CMPA Brillo			;Verificar si ya se llegó al valor de Brillo deseado
-	loc
-	BEQ SIGA`			;Saltar si ya se llegó al valor de Brillo deseado
-	DEC Counter_Ticks		;Decrementar contador de Ticks
-	;DEC CONT_OC			;Decrementar contador de llamadas a la ISR
-	;BNE NODECRE			;Saltar si el contador aun no es cero
-	;MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
-
-SIGA`	LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
+	LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
         JSR Decre_Timers_BaseT          ;Llamar a subrutina para decrementar timers
         LDD Timer20uS               	;Verificar si el timer de 20uS llegÃ³ a 0
         loc
