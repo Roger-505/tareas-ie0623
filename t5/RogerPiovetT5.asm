@@ -196,7 +196,7 @@ Fin_Base100mS   	dB 	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1S
 Timer_LP1            	ds    	1	;Timer para identificar un long press	
-Timer_SegundosTCM	ds	1	;Timer para despliegue de mensajes en LCD en Tarea_TCM
+SegundosTCM		ds	1	;Timer para despliegue de mensajes en LCD en Tarea_TCM
 Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 
 ;===============================================================================
@@ -248,7 +248,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 
 	;Inicializar variables en Tarea_TCM
 	MOVW #TCM_Est1,Est_Pres_TCM		;Cargar estado inicial para la ME TCM
-	CLR Timer_SegundosTCM			;Limpiar timer para el conteo de segundos TCM
+	CLR SegundosTCM				;Limpiar timer para el conteo de segundos TCM
 	CLR MinutosTCM				;Limpiar timer para el conteo de minutos TCM
 
 	;Inicializar variables utilizadas en Tarea_Conversión y Tarea_PantallaMUX
@@ -257,13 +257,9 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	CLR Counter_Ticks			;Limpiar timer para definir brillo de los displays
 	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
 	MOVB #80,Brillo				;Definir brillo de los displays
-	MOVB #$3F,DSP1				;Desplegar '0' en el display 1
-	MOVB #$06,DSP2				;Desplegar '1' en el display 2
-	MOVB #$5B,DSP3				;Desplegar '2' en el display 3
-	MOVB #$4F,DSP4				;Desplegar '3' en el display 4
-	MOVB #$AA,LEDS				;Encender LEDs impares en PORTB
-	MOVB #04,BIN2				;Desplegar '15' en los displays 3 y 4
-	MOVB #20,BIN1				;Desplegar '15' en los displays 1 y 2
+	MOVB #InicioLD,LEDS			;Encender LEDs para el mensaje inicial
+	MOVB #tMinutosTCM,BIN2			;Desplegar valor de minutos inicial en displays
+	MOVB #tSegundosTCM,BIN1			;Desplegar valor de segundos inicial en displays
 	
 	;Inicializar variables en Tarea_LCD
 
@@ -413,17 +409,40 @@ Tarea_TCM
 
 ;================================= TCM ESTADO 1 ===============================
 TCM_Est1
-	
-	RTS				;Retornar de la subrutina
+	loc
+	BRCLR Banderas_1,ShortP1,FIN`	;Saltar si no se ha presionado el botón en PB
+	MOVB #tMinutosTCM,MinutosTCM	;Cargar timer de minutos 
+	MOVB #tSegundosTCM,SegundosTCM	;Cargar timer de segundos
+	;Mensaje temporal LCD
+	MOVW #TCM_Est2,Est_Pres_TCM	;Cambiar al estado 2, para decrementar TCM
+FIN`	RTS				;Retornar de la subrutina
 
 ;================================= TCM ESTADO 2 ===============================
 TCM_Est2
-	RTS				;Retornar de la subrutina
+	BCLR Banderas_1,ShortP1		;Limpiar bandera de pulsación de PB
+	MOVB #TemporalLD,LEDS		;Cargar valor para desplegar LEDs para el mensaje temporal
+	MOVB MinutosTCM,BIN2		;Cargar valor de minutos a desplegar en displays
+	MOVB SegundosTCM,BIN1		;Cargar valor de segundos a desplegar en displays
+	TST SegundosTCM			;Verificar si el timer de segundos ya llegó a cero
+	loc
+	BNE FIN`			;Saltar si el timer de segundos no ha llegado a cero
+	TST MinutosTCM			;Verificar si el timer de minutos ya llegó a cero
+	BNE NOCERO`			;Saltar si el timer de minutos no ha llegado a cero
+	MOVB #tMinutosTCM,BIN2		;Cargar valor inicial de minutos a desplegar en displays
+	MOVB #tSegundosTCM,BIN1		;Cargar valor inicial de segundos a desplegar en displays
+	;Mensaje INICIO LCD		
+	MOVB #InicioLD,LEDS		;Cargar valor para desplegar LEDs para el mensaje de inicio
+	MOVW #TCM_Est1,Est_Pres_TCM	;Cambiar al estado 1, para esperar otra pulsación del PB
+	BRA FIN`			;Saltar para finalizar subrutina
+NOCERO`	DEC MinutosTCM			;Decrementar timer de minutos
+	MOVB #tSegundosTCM*4,SegundosTCM	;Recargar timer de segundos, para que cuente otro minuto
+FIN`	RTS				;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       	TAREA CONVERSIÓN
 ;******************************************************************************
 Tarea_Conversion
+	loc
 	LDAA BIN1		;Cargar parte alta de valor binario a convertir
 	JSR BIN_BCD_MUXP	;Saltar a subrutina para convertir parte baja de valor BIN a BCD
 	MOVB BCD,BCD1		;Guardar resultado de la conversión a BCD en BCD1
@@ -522,7 +541,10 @@ DIGITO1	BCLR PTP,DIG1			;Habilitar primer dígito
 	BRA INCRE`			;Saltar para incrementar el contador de dígito
 DIGITO2 BCLR PTP,DIG2			;Habilitar segundo dígito
 	MOVB DSP2,PORTB			;Desplegar valor en el segundo dígito
-	BRA INCRE`			;Saltar para incrementar el contador de dígito
+	TST BCD2			;Verificar si los minutos ya llegaron a cero
+	BEQ NODECI			;Saltar para no imprimir un punto decimal
+	BSET PORTB,$80			;Desplegar punto decimal entre segundos y minutos
+NODECI	BRA INCRE`			;Saltar para incrementar el contador de dígito
 DIGITO3	BCLR PTP,DIG3			;Habilitar tercer dígito
 	MOVB DSP3,PORTB			;Desplegar valor del tercer dígito
 	BRA INCRE`			;Saltar para incrementar el contador de dígito
