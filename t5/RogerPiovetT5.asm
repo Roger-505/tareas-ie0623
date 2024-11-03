@@ -262,8 +262,8 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	MOVB #$5B,DSP3				;Desplegar '2' en el display 3
 	MOVB #$4F,DSP4				;Desplegar '3' en el display 4
 	MOVB #$AA,LEDS				;Encender LEDs impares en PORTB
-	MOVB #$0F,BIN1				;Desplegar '15' en los displays 1 y 2
-	MOVB #$0F,BIN2				;Desplegar '15' en los displays 3 y 4
+	MOVB #04,BIN2				;Desplegar '15' en los displays 3 y 4
+	MOVB #20,BIN1				;Desplegar '15' en los displays 1 y 2
 	
 	;Inicializar variables en Tarea_LCD
 
