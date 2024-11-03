@@ -57,10 +57,11 @@ InicioLD	EQU	$55	;Valor de LEDs para desplegar LEDs pares
 TemporalLD	EQU	$AA	;Valor de LEDs para desplegar LEDs impares
 
 ;--- Aqui se colocan los valores de carga para los timers baseT  ----
-tTimer1mS    	EQU	1	;Base de tiempo de 1 mS (1 ms x 1)
-tTimer10mS    	EQU	10	;Base de tiempo de 10 mS (1 mS x 10)
-tTimer100mS   	EQU	100	;Base de tiempo de 100 mS (10 mS x 100)
-tTimer1S       	EQU	1000	;Base de tiempo de 1 segundo (100 mS x 10)
+tTimer20uS	EQU	1	;Base de tiempo de 20uS (20uS x 1)
+tTimer1mS    	EQU	50	;Base de tiempo de 1 mS (20uS x 50)
+tTimer10mS    	EQU	500	;Base de tiempo de 10 mS (20uS x 500)
+tTimer100mS   	EQU	5000	;Base de tiempo de 100 mS (20uS x 5000)
+tTimer1S       	EQU	50000	;Base de tiempo de 1 segundo (20uS x 50000)
 
 ;******************************************************************************
 ;                    		ENCABEZADO ADICIONAL
@@ -174,11 +175,15 @@ MSG	FCC "Microprocesadores IE0623"
 ;===============================================================================
     	Org INIT_T_TIMERS
 Tabla_Timers_BaseT		
+Timer20uS		ds	2	;Timer para generar la base de tiempo 20uS
 Timer1mS 		ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
 Timer10mS		ds 	2       ;Timer para generar la base de tiempo 10 mS
 Timer100mS		ds 	2       ;Timer para generar la base de tiempo de 100 mS
 Timer1S			ds	2       ;Timer para generar la base de tiempo de 1 Seg.
 Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
+
+Tabla_Timers_Base20uS
+Fin_Base20uS		dB	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1mS
 Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
@@ -202,7 +207,6 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 ;===============================================================================
 ;                       CONTROL DE MÁQUINA DE TIEMPOS
 ;===============================================================================
-CONT_OC			ds	1	;Contador para llamadas a la ISR
 Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 
 ;******************************************************************************
@@ -210,6 +214,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 ;******************************************************************************
 	ORG VEC_OC
     	DW Maquina_Tiempos
+
 ;===============================================================================
 ;                     	CONFIGURACION DE HARDWARE
 ;===============================================================================
@@ -256,7 +261,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	CLR Timer_Digito			;Limpiar timer para desplegar dígitos en los displays
 	CLR Counter_Ticks			;Limpiar timer para definir brillo de los displays
 	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
-	MOVB #80,Brillo				;Definir brillo de los displays
+	MOVB #90,Brillo				;Definir brillo de los displays
 	MOVB #InicioLD,LEDS			;Encender LEDs para el mensaje inicial
 	MOVB #tMinutosTCM,BIN2			;Desplegar valor de minutos inicial en displays
 	MOVB #tSegundosTCM,BIN1			;Desplegar valor de segundos inicial en displays
@@ -278,6 +283,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
 
 	;Inicializar timers baseT
+        Movw #tTimer20uS,Timer20uS		;Inicializar timer para la base de tiempo de 20uS
         Movw #tTimer1mS,Timer1mS		;Inicializar timer para la base de tiempo de 1ms
         Movw #tTimer10mS,Timer10mS		;Inicializar timer para la base de tiempo de 10ms
         Movw #tTimer100mS,Timer100mS		;Inicializar timer para la base de tiempo de 100ms
@@ -287,7 +293,7 @@ Counter_Ticks		DS	1	;Contador de ticks para multiplexción de displays
 	LDD TCNT				;Cargar valor actual del timer
 	ADDD #Carga_TC4				;Cargar el valor inicial de comparación para el canal 4
 	STD TC4					;Guardar el nuevo valor de comparación
-	MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
+	;MOVB #50,CONT_OC			;Cargar contador de llamadas a ISR
 
 	BCLR DDRH,$FF
 	;Inicialización para uso de interrupciones y subrutinas
@@ -511,6 +517,7 @@ BCD_7SEG
 	ANDA #$0F		;Obtener nibble inferior (DSP4)
 	MOVB A,X,DSP4		;Actualizar valor desplegado en el display DSP4
 	RTS			;Retornar de las subrutina
+	loc
 
 ;******************************************************************************
 ;                       	TAREA PANTALLA MUX
@@ -719,12 +726,19 @@ Maquina_Tiempos:
 	loc
 	BEQ SIGA`			;Saltar si ya se llegó al valor de Brillo deseado
 	DEC Counter_Ticks		;Decrementar contador de Ticks
-SIGA` 	DEC CONT_OC			;Decrementar contador de llamadas a la ISR
-	BNE NODECRE			;Saltar si el contador aun no es cero
-	MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
-        LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
+	;DEC CONT_OC			;Decrementar contador de llamadas a la ISR
+	;BNE NODECRE			;Saltar si el contador aun no es cero
+	;MOVB #50,CONT_OC		;Recargar contador de llamadas a la ISR
+
+SIGA`	LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
         JSR Decre_Timers_BaseT          ;Llamar a subrutina para decrementar timers
-        LDD Timer1mS               	;Verificar si el timer de 1mS llegÃ³ a 0
+        LDD Timer20uS               	;Verificar si el timer de 20uS llegÃ³ a 0
+        loc
+        BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
+        MOVW #tTimer20uS,Timer20uS      ;Reiniciar timer de 20uS
+        LDX #Tabla_Timers_Base20uS      ;Cargar direcciÃ³n base de tabla base 1mS
+        JSR Decre_Timers               	;Llamar a subrutina para decrementar timers
+NOCERO`	LDD Timer1mS               	;Verificar si el timer de 1mS llegÃ³ a 0
         loc
         BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
         MOVW #tTimer1mS,Timer1mS        ;Reiniciar timer de 1mS
@@ -744,11 +758,10 @@ NOCERO`	LDD Timer100mS        		;Verificar si el timer de 100mS llegÃ³ a 0
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
 NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S llegÃ³ a 0
         loc
-        BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
+        BNE NODECRE                     ;Saltar si el timer aun no ha llegado a 0
         MOVW #tTimer1S,Timer1S          ;Reiniciar timer de 1S
         LDX #Tabla_Timers_Base1S        ;Cargar direcciÃ³n base de tabla base 1S
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
-NOCERO` loc
 NODECRE	LDD TCNT			;Cargar valor actual del timer
 	ADDD #Carga_TC4			;Cargar el valor inicial de comparación para el canal 4
 	STD TC4				;Guardar el nuevo valor de comparación
