@@ -57,9 +57,12 @@ InicioLD	EQU	$55	;Valor de LEDs para desplegar LEDs pares
 TemporalLD	EQU	$AA	;Valor de LEDs para desplegar LEDs impares
 
 ; --- Aquí se colocan los valores asociados a la pantalla LCD ---
-tTimer2mS	EQU	2	;Valor para un retardo de 2mS
-tTimer260uS	EQU	13	;Valor para un retardo de 260uS
-tTimer40uS	EQU	2	;Valor para un retardo de 40uS
+tTimer2mS	EQU	2	;Retardo de 2mS
+tTimer260uS	EQU	13	;Retardo de 260uS
+tTimer40uS	EQU	2	;Retardo de 40uS
+Clear_LCD	EQU	$01	;Comando CLEAR para LCD
+ADD_L1		EQU	$80	;Dirección de línea 1 en LCD
+ADD_L2		EQU	$C0	;Dirección de línea 2 en LCD
 
 ; --- Aqui se colocan los valores de carga para los timers baseT  ----
 tTimer20uS	EQU	1	;Base de tiempo de 20uS (20uS x 1)
@@ -123,16 +126,16 @@ BCD2		DS	1
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_LCD --- 
 	ORG INIT_LCD
-IniDsp				;Tabla con comandos para la inicialización de la pantalla LCD
-		DB	$FF	
-		DB	$FF
-		DB	$FF
-		DB	$FF
-		DB	$FF
-Punt_LCD		DS	2
-CharLCD			DS	1
-Msg_L1			DS	2
-Msg_L2			DS	2
+IniDsp			;Tabla con comandos para la inicialización de la pantalla LCD
+	DB	$28 	;FunctionSet1: Modo 4 bits, 2 líneas, fuente 5x8 puntos
+	DB	$28	;FunctionSet2, ya que debe ser retransmitido para inicializar la pantalla
+	DB	$06	;Entry Mode Set. Incremento del cursor, sin shift del display
+	DB	$0C	;Display ON/OFF Control. Display encendido, cursor apagado, sin parpadeo
+	DB	$FF	;Indicador de fin de tabla (EOB)
+Punt_LCD		DS	2	;Puntero para barrer arreglos de datos a enviar a LCD
+CharLCD			DS	1	;Variable que contiene dato a transferir al LCD
+;Msg_L1			DS	2	
+;Msg_L2			DS	2
 EstPres_SendLCD		DS	2	;Variable de estado para la ME SendLCD
 EstPres_TareaLCD	DS	2	;Variable de estado para la ME TareaLCD
 
@@ -282,8 +285,6 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	MOVB #tMinutosTCM,BIN2			;Desplegar valor de minutos inicial en displays
 	MOVB #tSegundosTCM,BIN1			;Desplegar valor de segundos inicial en displays
 	
-	;Inicializar variables en Tarea_LCD
-
 	;Inicializar banderas
         CLR Banderas_1				;Limpia Banderas_1
         CLR Banderas_2				;Limpia Banderas_2
@@ -313,6 +314,28 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	;Inicialización para uso de interrupciones y subrutinas
         LDS #INIT_PILA				;Inicializa la pila
         CLI					;Habilitar interrupciones no mascarables
+
+;===============================================================================
+;                    RUTINA DE INICIALIZACIÓN DE LCD 
+;===============================================================================
+	MOVW #SendLCD_Est1,EstPres_SendLCD	;Cargar estado inicial en ME SEND_LCD
+	MOVB #tTimer260uS,Timer260us		;Inicializar timer para lectura de datos LCD
+	MOVB #tTImer40uS,Timer40uS		;Inicializar timer para procesamiento en LCD
+	BSET DDRK,$3F				;Declarar como salida PORTK[5:0]
+	CLR Banderas_2				;Limpiar banderas para LCD
+	MOVW #IniDsp,Punt_LCD			;Inicializar puntero con tabla de inicialización LCD
+	loc
+SIGA`	LDX Punt_LCD				;Cargar dirección de tabla con datos de inicialización
+	MOVB 1,X+,CharLCD			;Cargar dato de inicialización en CharLCD
+	STX Punt_LCD				;Guardar puntero actualizado
+	LDAA CharLCD				;Cargar CharLCD
+	CMPA #$FF				;Verificar si se llegó al EOB
+	BEQ Despachador_Tareas			;Saltar si ya se llegó al EOB
+SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estroboscópico para LCD
+	BRCLR Banderas_2,FinSendLCD,SIGLCD`	;Saltar si aun no se ha enviado el dato
+	BCLR Banderas_2,FinSendLCD		;Limpiar bandera de envío de dato
+	BRA SIGA`				;Saltar para seguir barriendo tabla IniDsp
+	loc
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
         JSR Tarea_Leer_PB1			;Despacha Tarea_Leer_PB
