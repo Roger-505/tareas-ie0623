@@ -123,6 +123,18 @@ BCD2		DS	1
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_LCD --- 
 	ORG INIT_LCD
+IniDsp				;Tabla con comandos para la inicialización de la pantalla LCD
+		DB	$FF	
+		DB	$FF
+		DB	$FF
+		DB	$FF
+		DB	$FF
+Punt_LCD		DS	2
+CharLCD			DS	1
+Msg_L1			DS	2
+Msg_L2			DS	2
+EstPres_SendLCD		DS	2	;Variable de estado para la ME SendLCD
+EstPres_TareaLCD	DS	2	;Variable de estado para la ME TareaLCD
 
 ; --- Aquí se colocan las estructuras de datos asociadas a Tarea_Leer_PB1 --- 
 	ORG INIT_LEERPB1
@@ -307,6 +319,7 @@ Despachador_Tareas
 	JSR Tarea_TCM				;Despacha Tarea_TCM
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
+	JSR Tarea_SendLCD			;Despacha Tarea_SendLCD
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
@@ -581,10 +594,76 @@ PantallaMUX_Est2
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
 FIN`	RTS						;Retornar de la subrutina
 
+
+;******************************************************************************
+;                       	TAREA SEND_LCD
+;******************************************************************************
+Tarea_SendLCD
+	LDX EstPres_SendLCD			;Cargar estado inicial de la ME Send_LCD
+	JSR 0,X					;Saltar a la subrutina del estado presente
+	RTS					;Retornar de la subrutina
+
+;============================== SEND_LCD ESTADO 1 ============================
+SendLCD_Est1
+	LDAA CharLCD				;Cargar caracter por enviar a la pantalla LCD
+	ANDA #$F0				;Obtener nibble superior de CharLCD
+	LSRA					;Desplazar nibble por primera vez para que quede en A[5:2]
+	LSRA					;Desplazar nibble por segunda vez para que quede en A[5:2]
+	STAA PORTK				;Cargar nibble superior de CharLCD en PORTK[5:2]
+	loc
+	BRCLR Banderas_2,RS,CMD`		;Saltar si CharLCD es un comando
+	BSET PORTK,$01				;Habilitar RS, ya que CharLCD es un dato
+	BRA SIGA`				;Saltar para escribir dato a LCD
+CMD`	BCLR PORTK,$01				;Deshabilitar RS, ya que CharLCD es un comando
+SIGA`	BSET PORTK,$02				;Habilitar EN para escribir CharLCD a LCD
+	MOVB #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
+	MOVW #SendLCD_Est2,EstPres_SendLCD	;Cargar estado 2, para mandar parte baja de CharLCD
+	RTS			;Retornar de la subrutina
+
+;============================== SEND_LCD ESTADO 2 =============================
+SendLCD_Est2
+	TST Timer260uS				;Verificar si el timer de 260uS llegó a cero
+	loc 
+	BNE FIN`				;Saltar si el timer no ha llegado a cero
+	BCLR PORTK,$01				;Deshabilitar EN para mandar parte baja de CharLCD
+	LDAA CharLCD				;Cargar caracter por enviar a la pantalla LCD
+	ANDA #$0F				;Obtener nibble inferior de CharLCD
+	LSLA					;Desplazar nibble por primera vez para que quede en A[5:2]
+	LSLA					;Desplazar nibble por segunda vez para que quede en A[5:2]
+	STAA PORTK				;Cargar nibble inferior de CharLDC en PORTK[5:2]
+	BRCLR Banderas_2,RS,CMD`		;Saltar si CharLCD es un comando
+	BSET PORTK,$01				;Habilitar RS, ya que CharLCD es un dato
+	BRA SIGA`				;Saltar para escribir dato a LCD
+CMD`	BCLR PORTK,$01				;Deshabilitar RS, ya que CharLCD es un comando
+SIGA`	BSET PORTK,$02				;Habilitar EN para escribir CharLCD a LCD
+	MOVB #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
+	MOVW #SendLCD_Est3,EstPres_SendLCD	;Cargar estado 3, para esperar a que se cargue y procese el dato/comando
+FIN`	RTS					;Retornar de la subrutina
+
+;============================== SEND_LCD ESTADO 3 =============================
+SendLCD_Est3
+	TST Timer260uS				;Verificar si el timer de 260uS llegó a cero
+	loc
+	BNE FIN`				;Saltar si el timer ya llegó a cero
+	BCLR PORTK,$02				;Deshabilitar EN, debido a que el dato ya fue enviado a LCD
+	MOVB #tTimer40uS,Timer40uS		;Cargar timer de 40uS para que se procese el dato/comando en LCD
+	MOVW #SendLCD_Est4,EstPres_SendLCD	;Cambiar al estado 4 para terminar protocolo estroboscópico
+FIN`	RTS					;Retornar de la subrutina
+
+;============================== SEND_LCD ESTADO 4 =============================
+SendLCD_Est4
+	TST Timer40uS				;Verificar si el timer de 40uS llegó a cero
+	loc 
+	BNE FIN`				;Saltar si el timer aun no ha llegado a cero 
+	BSET Banderas_2,FinSendLCD		;Levantar bandera para indicar el envío y procesamiento de CharLCD
+	MOVW #SendLCD_Est1,EstPres_SendLCD	;Cambiar al estado 1 para enviar otro dato
+FIN`	RTS					;Retornar de la subrutina
+
 ;******************************************************************************
 ;                       	TAREA TECLADO
 ;******************************************************************************
 Tarea_Teclado
+	loc
 	LDX Est_Pres_TCL		;Cargar dirección de la subrutina para el estado presente
 	JSR 0,X				;Saltar a la subrutina del estado presente	
 	RTS				;Retornar de la subrutina 
