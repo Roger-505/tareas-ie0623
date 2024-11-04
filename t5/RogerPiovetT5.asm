@@ -330,11 +330,18 @@ SIGA`	LDX Punt_LCD				;Cargar dirección de tabla con datos de inicialización
 	STX Punt_LCD				;Guardar puntero actualizado
 	LDAA CharLCD				;Cargar CharLCD
 	CMPA #$FF				;Verificar si se llegó al EOB
-	BEQ Despachador_Tareas			;Saltar si ya se llegó al EOB
+	BEQ CLRLCD				;Saltar si ya se llegó al EOB
 SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estroboscópico para LCD
 	BRCLR Banderas_2,FinSendLCD,SIGLCD`	;Saltar si aun no se ha enviado el dato
 	BCLR Banderas_2,FinSendLCD		;Limpiar bandera de envío de dato
 	BRA SIGA`				;Saltar para seguir barriendo tabla IniDsp
+CLRLCD	MOVB #Clear_LCD,CharLCD			;Cargar comando para limpiar LCD
+	loc
+SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estroboscópico para LCD
+	BRCLR Banderas_2,FinSendLCD,SIGLCD`	;Saltar si aun no se ha enviado el dato
+	MOVB #tTimer2mS,Timer2mS		;Cargar timer de 2mS para limpiar pantalla
+NOCERO`	TST Timer2mS				;Verificar si el timer ha llegado a cero
+	BNE NOCERO`				;Saltar si el timer no ha llegado a cero
 	loc
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
