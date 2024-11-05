@@ -343,6 +343,7 @@ SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estro
 NOCERO`	TST Timer2mS				;Verificar si el timer ha llegado a cero
 	BNE NOCERO`				;Saltar si el timer no ha llegado a cero
 	loc
+
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
         JSR Tarea_Leer_PB1			;Despacha Tarea_Leer_PB

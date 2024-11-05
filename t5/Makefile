@@ -30,7 +30,7 @@ load:
 
 run: 
 	@echo "Running program on Dragon12 board..."
-	@sleep 4
+	@sleep 5
 	@echo "g 2000\r" > $(SERIAL)
 	@echo "Program execution started at address 0x2000."
 
