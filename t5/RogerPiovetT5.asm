@@ -58,14 +58,14 @@ TemporalLD	EQU	$AA	;Valor de LEDs para desplegar LEDs impares
 
 ; --- Aquí se colocan los valores asociados a la pantalla LCD ---
 tTimer2mS	EQU	2	;Retardo de 2mS
-tTimer260uS	EQU	13	;Retardo de 260uS
-tTimer40uS	EQU	2	;Retardo de 40uS
 Clear_LCD	EQU	$01	;Comando CLEAR para LCD
 ADD_L1		EQU	$80	;Dirección de línea 1 en LCD
 ADD_L2		EQU	$C0	;Dirección de línea 2 en LCD
 
 ; --- Aqui se colocan los valores de carga para los timers baseT  ----
 tTimer20uS	EQU	1	;Base de tiempo de 20uS (20uS x 1)
+tTimer40uS	EQU	2	;Retardo de 40uS
+tTimer260uS	EQU	13	;Retardo de 260uS
 tTimer1mS    	EQU	50	;Base de tiempo de 1 mS (20uS x 50)
 tTimer10mS    	EQU	500	;Base de tiempo de 10 mS (20uS x 500)
 tTimer100mS   	EQU	5000	;Base de tiempo de 100 mS (20uS x 5000)
@@ -195,18 +195,14 @@ MSG	FCC "Microprocesadores IE0623"
 ;===============================================================================
     	Org INIT_T_TIMERS
 Tabla_Timers_BaseT		
-Timer20uS		ds	2	;Timer para generar la base de tiempo 20uS
+Counter_Ticks		ds	2	;Timer para generar la base de tiempo 20uS
+Timer260uS		ds	2	;Timer para generar un retardo de 260uS
+Timer40uS		ds	2	;Timer para generar un retardo de 40uS
 Timer1mS 		ds 	2       ;Timer 1 ms con base a tiempo de interrupcion
 Timer10mS		ds 	2       ;Timer para generar la base de tiempo 10 mS
 Timer100mS		ds 	2       ;Timer para generar la base de tiempo de 100 mS
 Timer1S			ds	2       ;Timer para generar la base de tiempo de 1 Seg.
 Fin_BaseT       	dW 	$FFFF	;Indicador de fin de tabla
-
-Tabla_Timers_Base20uS
-Counter_Ticks		ds	1	;Contador de ticks para ajustar brillo de displays
-Timer260uS		ds	1	
-Timer40uS		ds	1
-Fin_Base20uS		dB	$FF	;Indicador de fin de tabla
 
 Tabla_Timers_Base1mS
 Timer_Digito		ds	1	;Timer para manejar la multiplexación de los displays
@@ -280,7 +276,7 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	CLR Timer_Digito			;Limpiar timer para desplegar dígitos en los displays
 	CLR Counter_Ticks			;Limpiar timer para definir brillo de los displays
 	MOVB #$01,Cont_Dig			;Cargar primer display por ser desplegado
-	MOVB #90,Brillo				;Definir brillo de los displays
+	MOVB #30,Brillo				;Definir brillo de los displays
 	MOVB #InicioLD,LEDS			;Encender LEDs para el mensaje inicial
 	MOVB #tMinutosTCM,BIN2			;Desplegar valor de minutos inicial en displays
 	MOVB #tSegundosTCM,BIN1			;Desplegar valor de segundos inicial en displays
@@ -300,7 +296,6 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 	JSR BORRAR_NUM_ARRAY			;Saltar a subrutina para borrar Num_Array
 
 	;Inicializar timers baseT
-        Movw #tTimer20uS,Timer20uS		;Inicializar timer para la base de tiempo de 20uS
         Movw #tTimer1mS,Timer1mS		;Inicializar timer para la base de tiempo de 1ms
         Movw #tTimer10mS,Timer10mS		;Inicializar timer para la base de tiempo de 10ms
         Movw #tTimer100mS,Timer100mS		;Inicializar timer para la base de tiempo de 100ms
@@ -319,8 +314,8 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 ;                    RUTINA DE INICIALIZACIÓN DE LCD 
 ;===============================================================================
 	MOVW #SendLCD_Est1,EstPres_SendLCD	;Cargar estado inicial en ME SEND_LCD
-	MOVB #tTimer260uS,Timer260us		;Inicializar timer para lectura de datos LCD
-	MOVB #tTImer40uS,Timer40uS		;Inicializar timer para procesamiento en LCD
+	MOVW #tTimer260uS,Timer260us		;Inicializar timer para lectura de datos LCD
+	MOVW #tTImer40uS,Timer40uS		;Inicializar timer para procesamiento en LCD
 	BSET DDRK,$3F				;Declarar como salida PORTK[5:0]
 	CLR Banderas_2				;Limpiar banderas para LCD
 	MOVW #IniDsp,Punt_LCD			;Inicializar puntero con tabla de inicialización LCD
@@ -350,7 +345,7 @@ Despachador_Tareas
 	JSR Tarea_TCM				;Despacha Tarea_TCM
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
-	JSR Tarea_SendLCD			;Despacha Tarea_SendLCD
+	;JSR Tarea_LCD				;Despacha Tarea_SendLCD
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
@@ -610,14 +605,14 @@ DIGITO5	BCLR PTJ,$02			;Habilitar quinto dígito (ánodo de los LEDs)
 	MOVB #1,Cont_Dig		;Reiniciar el contador de dígito
 	BRA TICKS`			;Saltar para iniciar el contador de ticks
 INCRE`	INC Cont_Dig			;Incrementar el contador de dígito
-TICKS`	MOVB #MaxCountTicks,Counter_Ticks		;Iniciar el contador de ticks
+TICKS`	MOVW #MaxCountTicks,Counter_Ticks		;Iniciar el contador de ticks
 	MOVW #PantallaMUX_Est2,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 2
 FIN`	RTS				;Retornar de la subrutina
 
 ;============================== TECLADO ESTADO 2 =============================
 PantallaMUX_Est2
-	LDAA Counter_Ticks		;Cargar contador de ticks
-	CMPA Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
+	LDD Counter_Ticks		;Cargar contador de ticks
+	CMPB Brillo			;Verificar si el contador de ticks ya alcanzó el valor de brillo
 	loc
 	BHI FIN` 			;Saltar si ya se llegó al valor de brillo
 	BSET PTP,$0F			;Deshabilitar displays de 7 segmentos 
@@ -647,13 +642,13 @@ SendLCD_Est1
 	BRA SIGA`				;Saltar para escribir dato a LCD
 CMD`	BCLR PORTK,$01				;Deshabilitar RS, ya que CharLCD es un comando
 SIGA`	BSET PORTK,$02				;Habilitar EN para escribir CharLCD a LCD
-	MOVB #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
+	MOVW #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
 	MOVW #SendLCD_Est2,EstPres_SendLCD	;Cargar estado 2, para mandar parte baja de CharLCD
-	RTS			;Retornar de la subrutina
+	RTS					;Retornar de la subrutina
 
 ;============================== SEND_LCD ESTADO 2 =============================
 SendLCD_Est2
-	TST Timer260uS				;Verificar si el timer de 260uS llegó a cero
+	LDD Timer260uS				;Verificar si el timer de 260uS llegó a cero
 	loc 
 	BNE FIN`				;Saltar si el timer no ha llegado a cero
 	BCLR PORTK,$01				;Deshabilitar EN para mandar parte baja de CharLCD
@@ -667,23 +662,23 @@ SendLCD_Est2
 	BRA SIGA`				;Saltar para escribir dato a LCD
 CMD`	BCLR PORTK,$01				;Deshabilitar RS, ya que CharLCD es un comando
 SIGA`	BSET PORTK,$02				;Habilitar EN para escribir CharLCD a LCD
-	MOVB #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
+	MOVW #tTimer260uS,Timer260uS		;Cargar timer de 260uS para que LCD procese CharLCD
 	MOVW #SendLCD_Est3,EstPres_SendLCD	;Cargar estado 3, para esperar a que se cargue y procese el dato/comando
 FIN`	RTS					;Retornar de la subrutina
 
 ;============================== SEND_LCD ESTADO 3 =============================
 SendLCD_Est3
-	TST Timer260uS				;Verificar si el timer de 260uS llegó a cero
+	LDD Timer260uS				;Verificar si el timer de 260uS llegó a cero
 	loc
 	BNE FIN`				;Saltar si el timer ya llegó a cero
 	BCLR PORTK,$02				;Deshabilitar EN, debido a que el dato ya fue enviado a LCD
-	MOVB #tTimer40uS,Timer40uS		;Cargar timer de 40uS para que se procese el dato/comando en LCD
+	MOVW #tTimer40uS,Timer40uS		;Cargar timer de 40uS para que se procese el dato/comando en LCD
 	MOVW #SendLCD_Est4,EstPres_SendLCD	;Cambiar al estado 4 para terminar protocolo estroboscópico
 FIN`	RTS					;Retornar de la subrutina
 
 ;============================== SEND_LCD ESTADO 4 =============================
 SendLCD_Est4
-	TST Timer40uS				;Verificar si el timer de 40uS llegó a cero
+	LDD Timer40uS				;Verificar si el timer de 40uS llegó a cero
 	loc 
 	BNE FIN`				;Saltar si el timer aun no ha llegado a cero 
 	BSET Banderas_2,FinSendLCD		;Levantar bandera para indicar el envío y procesamiento de CharLCD
@@ -834,14 +829,11 @@ SIGA`	MOVB #$FF,1,X+			;Borrar una tecla de Num_Array
 ;                       SUBRUTINA DE ATENCION A OUTPUT COMPARE
 ;******************************************************************************
 Maquina_Tiempos:
+	LDD TCNT			;Cargar valor actual del timer
+	ADDD #Carga_TC4			;Cargar el valor inicial de comparación para el canal 4
+	STD TC4				;Guardar el nuevo valor de comparación
 	LDX #Tabla_Timers_BaseT         ;Cargar direcciÃ³n base de tabla base T
         JSR Decre_Timers_BaseT          ;Llamar a subrutina para decrementar timers
-        LDD Timer20uS               	;Verificar si el timer de 20uS llegÃ³ a 0
-        loc
-        BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
-        MOVW #tTimer20uS,Timer20uS      ;Reiniciar timer de 20uS
-        LDX #Tabla_Timers_Base20uS      ;Cargar direcciÃ³n base de tabla base 1mS
-        JSR Decre_Timers               	;Llamar a subrutina para decrementar timers
 NOCERO`	LDD Timer1mS               	;Verificar si el timer de 1mS llegÃ³ a 0
         loc
         BNE NOCERO`                     ;Saltar si el timer aun no ha llegado a 0
@@ -866,10 +858,7 @@ NOCERO` LDD Timer1S                     ;Verificar si el timer de 1S llegÃ³ a 0
         MOVW #tTimer1S,Timer1S          ;Reiniciar timer de 1S
         LDX #Tabla_Timers_Base1S        ;Cargar direcciÃ³n base de tabla base 1S
         JSR Decre_Timers                ;Llamar a subrutina para decrementar timers
-NOCERO`	LDD TCNT			;Cargar valor actual del timer
-	ADDD #Carga_TC4			;Cargar el valor inicial de comparación para el canal 4
-	STD TC4				;Guardar el nuevo valor de comparación
-        RTI				;Retornar de la ISR
+NOCERO`	RTI				;Retornar de la ISR
 
 ;******************************************************************************
 ;                       SUBRUTINA DECRE_TIMERS_BASET
