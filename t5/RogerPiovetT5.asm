@@ -134,8 +134,8 @@ IniDsp			;Tabla con comandos para la inicialización de la pantalla LCD
 	DB	$FF	;Indicador de fin de tabla (EOB)
 Punt_LCD		DS	2	;Puntero para barrer arreglos de datos a enviar a LCD
 CharLCD			DS	1	;Variable que contiene dato a transferir al LCD
-;Msg_L1			DS	2	
-;Msg_L2			DS	2
+MSG_L1			DS	2	;Dirección del mensaje a desplegar en la primera línea de la pantalla LCD
+MSG_L2			DS	2	;Dirección del mensaje a desplegar en la segunda línea de la pantalla LCD
 EstPres_SendLCD		DS	2	;Variable de estado para la ME SendLCD
 EstPres_TareaLCD	DS	2	;Variable de estado para la ME TareaLCD
 
@@ -188,7 +188,14 @@ Teclas		DB	$01	;(PA0 = 0) && (PA4 = 0) -> '1'
 ;                              	 MENSAJES
 ;===============================================================================
 	ORG INIT_MSGS
-MSG	FCC "Microprocesadores IE0623"
+MSG1	FCC     " ING. ELECTRICA "
+	DB	$FF			;Indicador de fin de mensaje
+MSG2	FCC     "    UCR 2024    "
+	DB	$FF			;Indicador de fin de mensaje
+MSG3	FCC 	" uPROCESADORES  "
+	DB	$FF			;Indicador de fin de mensaje
+MSG4	FCC	"     IE0623     "		
+	DB 	$FF			;Indicador de fin de mensaje
 
 ;===============================================================================
 ;                              TABLA DE TIMERS
@@ -313,6 +320,8 @@ Fin_Base1S   		dB 	$FF	;Indicador de fin de tabla
 ;===============================================================================
 ;                    RUTINA DE INICIALIZACIÓN DE LCD 
 ;===============================================================================
+	MOVW #MSG1,MSG_L1			;Cargar dirección de la primera línea del mensaje a enviar
+	MOVW #MSG2,MSG_L2			;Cargar dirección de la segunda línea del mensaje a enviar
 	MOVW #SendLCD_Est1,EstPres_SendLCD	;Cargar estado inicial en ME SEND_LCD
 	MOVW #tTimer260uS,Timer260us		;Inicializar timer para lectura de datos LCD
 	MOVW #tTImer40uS,Timer40uS		;Inicializar timer para procesamiento en LCD
@@ -338,6 +347,8 @@ SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estro
 NOCERO`	TST Timer2mS				;Verificar si el timer ha llegado a cero
 	BNE NOCERO`				;Saltar si el timer no ha llegado a cero
 	loc
+	;BSET Banderas_2,LCD_Ok			;Habilitar bandera de LCD_Ok para no correr la subrutina innecesareamente
+	MOVW #TareaLCD_Est1,EstPres_TareaLCD	;Cargar estado inicial para ME Tarea_LCD
 
 Despachador_Tareas
         JSR Tarea_Led_Testigo			;Despacha Tarea_Led_Testigo
@@ -345,7 +356,7 @@ Despachador_Tareas
 	JSR Tarea_TCM				;Despacha Tarea_TCM
 	JSR Tarea_Conversion			;Despacha la Tarea_Conversion
 	JSR Tarea_PantallaMUX			;Despacha Tarea_PantallaMUX
-	;JSR Tarea_LCD				;Despacha Tarea_SendLCD
+	JSR Tarea_LCD				;Despacha Tarea_SendLCD
 	;JSR Tarea_Teclado			;Despacha Tarea_Teclado
 	;JSR Tarea_Borrar_TCL			;Despacha Tarea_Borrar_TCL
         Bra Despachador_Tareas			;Saltar para seguir despachando
@@ -461,7 +472,9 @@ TCM_Est1
 	BRCLR Banderas_1,ShortP1,FIN`	;Saltar si no se ha presionado el botón en PB
 	MOVB #tMinutosTCM,MinutosTCM	;Cargar timer de minutos 
 	MOVB #tSegundosTCM,SegundosTCM	;Cargar timer de segundos
-	;Mensaje temporal LCD
+	MOVW #MSG3,MSG_L1		;Cargar dirección de la primera línea del mensaje a enviar
+	MOVW #MSG4,MSG_L2		;Cargar dirección de la segunda línea del mensaje a enviar
+	BCLR Banderas_2,LCD_Ok		;Limpiar bandera LCD_Ok para el envío del mensaje
 	MOVW #TCM_Est2,Est_Pres_TCM	;Cambiar al estado 2, para decrementar TCM
 FIN`	RTS				;Retornar de la subrutina
 
@@ -478,7 +491,9 @@ TCM_Est2
 	BNE NOCERO`			;Saltar si el timer de minutos no ha llegado a cero
 	MOVB #tMinutosTCM,BIN2		;Cargar valor inicial de minutos a desplegar en displays
 	MOVB #tSegundosTCM,BIN1		;Cargar valor inicial de segundos a desplegar en displays
-	;Mensaje INICIO LCD		
+	MOVW #MSG1,MSG_L1		;Cargar dirección de la primera línea del mensaje a enviar
+	MOVW #MSG2,MSG_L2		;Cargar dirección de la segunda línea del mensaje a enviar
+	BCLR Banderas_2,LCD_Ok		;Limpiar bandera LCD_Ok para el envío del mensaje
 	MOVB #InicioLD,LEDS		;Cargar valor para desplegar LEDs para el mensaje de inicio
 	MOVW #TCM_Est1,Est_Pres_TCM	;Cambiar al estado 1, para esperar otra pulsación del PB
 	BRA FIN`			;Saltar para finalizar subrutina
@@ -620,11 +635,58 @@ PantallaMUX_Est2
 	MOVW #PantallaMUX_Est1,EstPres_PantallaMUX	;Actualizar la variable de estado para saltar al estado 1
 FIN`	RTS						;Retornar de la subrutina
 
+;******************************************************************************
+;                       	TAREA LCD
+;******************************************************************************
+Tarea_LCD
+	loc
+	BRSET Banderas_2,LCD_Ok,FIN`	;Saltar si aun no se ha solicitado el envío de un mensaje al LCD
+	LDX EstPres_TareaLCD		;Cargar estado presente para la ME LCD
+	JSR 0,X				;Saltar a subrutina del estado presente
+FIN`	RTS				;Retornar de la subrutina
+
+;============================== LCD ESTADO 1 ==================================
+TareaLCD_Est1
+	BCLR Banderas_2,FinSendLCD		;Borrar bandera de fin de envío de Char
+	BCLR Banderas_2,RS			;Borrar bandera RS para enviar un comando
+	loc
+	BRSET Banderas_2,Second_Line,SI_MSG1	;Saltar si aun no se ha terminado de enviar el mensaje a partir de MSG_L1
+	MOVB #ADD_L1,CharLCD			;Cargar dirección de la primera línea del mensaje en la pantalla LCD
+	MOVW MSG_L1,Punt_LCD			;Cargar dirección de la primera línea del mensaje en el MCU
+	BRA SIGA`				;Saltar para enviar CharLCD
+SI_MSG1	MOVB #ADD_L2,CharLCD			;Cargar dirección de la segunda línea del mensaje en la pantalla LCD
+	MOVW MSG_L2,Punt_LCD			;Cargar dirección de la segunda línea del mensaje en el MCU
+SIGA`	JSR Tarea_SendLCD			;Saltar a subrutina para enviar CharLCD
+	MOVW #TareaLCD_Est2,EstPres_TareaLCD	;Cambiar al estado 2, para enviar el mensaje
+	RTS					;Retornar de la subrutina
+
+;============================== LCD ESTADO 2 ==================================
+TareaLCD_Est2
+	loc
+	BRCLR Banderas_2,FinSendLCD,SIGA`	;Saltar si ya se envió el comando con la dirección del mensaje
+	BCLR Banderas_2,FinSendLCD		;Limpiar bandera para enviar un nuevo Char
+	BSET Banderas_2,RS			;Habilitar RS para enviar un dato
+	LDX Punt_LCD				;Cargar dirección del mensaje por enviar
+	LDAA 1,X+				;Cargar char del mensaje y ajustar índice para que apunte al siguiente char por enviar
+	STX Punt_LCD				;Actualizar puntero en memoria, apuntando al siguiente char por enviar
+	STAA CharLCD
+	CMPA #$FF				;Verificar si ya se alcanzó el indicador de fin de mensaje
+	BEQ FINMSG				;Saltar para verificar el estado de envío de los mensajes
+SIGA`	JSR Tarea_SendLCD			;Saltar a subrutina para el envío de un char con el protocolo estroboscópico
+	BRA FIN`				;Saltar para finalizar subrutina, manteniendose en el estado 2
+FINMSG	BRCLR Banderas_2,Second_Line,NO_MSG2	;Saltar si aun no se ha enviado el mensaje 2
+	BCLR Banderas_2,Second_Line		;Limpiar bandera de Second_Line, ya que el mensaje 2 fue enviado correctamente
+	BSET Banderas_2,LCD_Ok			;Habilitar bandera para indicar que ya fueron enviadas ambas líneas del mensaje
+	BRA FIN_EST				;Saltar para cargar el estado inicial de la máquina de estados
+NO_MSG2	BSET Banderas_2,Second_Line		;Habilitar bandera para enviar el mensaje 2
+FIN_EST	MOVW #TareaLCD_Est1,EstPres_TareaLCD	;Cambiar al estado 1, para cargar las direcciones correspondientes al mensaje 2
+FIN`	RTS					;Retornar de la subrutina
 
 ;******************************************************************************
 ;                       	TAREA SEND_LCD
 ;******************************************************************************
 Tarea_SendLCD
+	loc
 	LDX EstPres_SendLCD			;Cargar estado inicial de la ME Send_LCD
 	JSR 0,X					;Saltar a la subrutina del estado presente
 	RTS					;Retornar de la subrutina
