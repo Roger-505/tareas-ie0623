@@ -347,6 +347,7 @@ SIGA`	LDX Punt_LCD				;Cargar dirección de tabla con datos de inicialización
 	STX Punt_LCD				;Guardar puntero actualizado
 	LDAA CharLCD				;Cargar CharLCD
 	CMPA #$FF				;Verificar si se llegó al EOB
+	;BSET Banderas_2,LCD_Ok			;Habilitar bandera de LCD_Ok para no correr la subrutina innecesareamente
 	BEQ CLRLCD				;Saltar si ya se llegó al EOB
 SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estroboscópico para LCD
 	BRCLR Banderas_2,FinSendLCD,SIGLCD`	;Saltar si aun no se ha enviado el dato
@@ -360,7 +361,6 @@ SIGLCD`	JSR Tarea_SendLCD			;Saltar a subrutina para implementar algoritmo estro
 NOCERO`	TST Timer2mS				;Verificar si el timer ha llegado a cero
 	BNE NOCERO`				;Saltar si el timer no ha llegado a cero
 	loc
-	;BSET Banderas_2,LCD_Ok			;Habilitar bandera de LCD_Ok para no correr la subrutina innecesareamente
 	MOVW #TareaLCD_Est1,EstPres_TareaLCD	;Cargar estado inicial para ME Tarea_LCD
 
 Despachador_Tareas
