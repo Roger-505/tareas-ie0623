@@ -4,7 +4,14 @@
 ;Version: 1.0
 ;Autor: Roger Daniel Piovet García 
 ;Fecha de entrega: 2024-11-08
-;Descripción: ....
+;
+;Descripción: El programa despliega un mensaje de inicio en el POR y un valor de
+;minutos y segundos en los displays de 7 segmentos. Al presionar el botón 
+;conectado a PH3, comienza una cuenta regresiva en los displays de 7 segmentos
+;y se muestra un mensaje temporal en la pantalla LCD.
+;
+;Asimismo, se implementa la lectura del teclado matricial de la Dragon12+2 y el
+;resto de subrutinas asociadas, como fue desarrollado en la Tarea #4 del curso. 
 ;******************************************************************************
 
 #include registers.inc
