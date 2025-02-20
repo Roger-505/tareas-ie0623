@@ -1,9 +1,10 @@
 # Variables
 ASSEMBLER = as12
-FILE = RogerPiovetPF
+FILE = prueba
 PROCESSOR = 68hcs12
 SIMULATOR = sim68cs12
 SERIAL = $(shell ls /dev/ttyUSB* | head -n 1)  # Last serial port added must be Dragon12
+SLEEP_TIME = 6
 
 # Default target
 all: ram run
@@ -30,7 +31,7 @@ load:
 
 run: 
 	@echo "Running program on Dragon12 board..."
-	@sleep 5
+	@sleep $(SLEEP_TIME)
 	@echo "g 2000\r" > $(SERIAL)
 	@echo "Program execution started at address 0x2000."
 
